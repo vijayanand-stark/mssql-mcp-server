@@ -1,0 +1,48 @@
+{
+  "defaultEnvironment": "prod",
+  "environments": [
+    {
+      "name": "prod",
+      "server": "prod-server.database.windows.net",
+      "database": "ProductionDB",
+      "port": 1433,
+      "authMode": "aad",
+      "trustServerCertificate": false,
+      "connectionTimeout": 30,
+      "readonly": true,
+      "description": "Production database (read-only for safety)"
+    },
+    {
+      "name": "staging",
+      "server": "staging-server.database.windows.net",
+      "database": "StagingDB",
+      "authMode": "aad",
+      "readonly": false,
+      "description": "Staging environment for testing"
+    },
+    {
+      "name": "dev-local",
+      "server": "localhost",
+      "database": "DevDB",
+      "port": 1433,
+      "authMode": "sql",
+      "username": "sa",
+      "password": "YourStrongPassword123!",
+      "trustServerCertificate": true,
+      "readonly": false,
+      "description": "Local development database"
+    },
+    {
+      "name": "client-acme-prod",
+      "server": "acme-sql.database.windows.net",
+      "database": "AcmeDB",
+      "authMode": "windows",
+      "username": "DOMAIN\\serviceaccount",
+      "password": "ServiceAccountPassword",
+      "domain": "DOMAIN",
+      "readonly": true,
+      "allowedTools": ["read_data", "list_table", "describe_table", "search_schema"],
+      "description": "Acme Corp production database"
+    }
+  ]
+}

@@ -29,3 +29,7 @@ environments.json
 
 # Audit logs
 logs/
+
+# MCP Publisher CLI (don't commit binary)
+mcp-publisher.exe
+mcp-publisher

@@ -55,25 +55,36 @@ Verify with `node -v` (should show `v20.x`). If you already have a newer Node ve
 
 ## Quick start
 
+### Option 1: Install from npm (recommended)
+
 ```bash
-npm install -g @connorbritain/mssql-mcp-server # optional if you want global CLI
-cd src/node
-npm install
-npm run build
+npm install -g @connorbritain/mssql-mcp-server@latest
 ```
 
-Configure your MCP client to point at `src/node/dist/index.js` with your connection env vars, then call tools from your MCP-compatible client (Windsurf, Claude Desktop, etc.). If you installed via npm you can invoke it with:
+Then configure your MCP client:
 
 ```json
 {
   "mcpServers": {
     "mssql": {
       "command": "npx",
-      "args": ["@connorbritain/mssql-mcp-server"],
+      "args": ["@connorbritain/mssql-mcp-server@latest"],
       "env": { "SERVER_NAME": "localhost", "DATABASE_NAME": "mydb", "READONLY": "true" }
     }
   }
 }
+```
+
+### Option 2: Build from source
+
+```bash
+git clone https://github.com/ConnorBritain/mssql-mcp-server.git
+cd mssql-mcp-server/src/node
+npm install
+npm run build
+```
+
+Then point your MCP client to `src/node/dist/index.js` with your connection env vars
 ```
 
 ---
@@ -247,7 +258,7 @@ See [ROADMAP.md](./ROADMAP.md) for the full enterprise roadmap with status track
 - ✅ Intent-based environment inference from natural language
 
 **Next priorities:**
-- Query plan preview (`explain_query` with SHOWPLAN)
+- ✅ Query plan preview (`explain_query` with SHOWPLAN) - shipped!
 - Per-environment policy controls
 - Named/template SQL scripts for repeatable operations
 - Configuration validation and health checks
@@ -256,14 +267,20 @@ See [ROADMAP.md](./ROADMAP.md) for the full enterprise roadmap with status track
 
 ## Contributing
 
-Contributions welcome. If you're working with SQL Server in environments where stability and security matter, I'd love to hear what tools would help you most.
+Contributions welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines. If you're working with SQL Server in environments where stability and security matter, I'd love to hear what tools would help you most.
 
-**If this project is useful to you, consider giving it a ⭐ and sharing it with others who work with SQL Server.** The more eyes on it, the better it gets.
+**If this project is useful to you, consider giving it a ⭐ on [GitHub](https://github.com/ConnorBritain/mssql-mcp-server) and sharing it with others who work with SQL Server.** The more eyes on it, the better it gets.
 
 ---
 
 ## License & attribution
 
-MIT license, inherited from the upstream SQL-AI-samples project. Microsoft trademarks remain theirs.
+MIT license. See [LICENSE](./LICENSE) for details.
 
-Thanks to the Microsoft Azure SQL team for the original foundation, and to the MCP community for the protocol specs that make cross-agent tooling possible.
+This project was originally forked from Microsoft's [SQL-AI-samples](https://github.com/Azure-Samples/SQL-AI-samples) and has since evolved into a standalone, production-focused MCP server. Thanks to the Microsoft Azure SQL team for the initial foundation, and to the MCP community for the protocol specs that make cross-agent tooling possible.
+
+---
+
+**Repository:** https://github.com/ConnorBritain/mssql-mcp-server  
+**npm package:** https://www.npmjs.com/package/@connorbritain/mssql-mcp-server  
+**Issues & support:** https://github.com/ConnorBritain/mssql-mcp-server/issues

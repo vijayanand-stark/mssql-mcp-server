@@ -1,13 +1,13 @@
 # @connorbritain/mssql-mcp-server
 
-Model Context Protocol server for SQL Server. Publish-ready version of the tooling used in this repo.
+Model Context Protocol server for SQL Server. This is the Node.js implementation.
 
 ## Install
 
 ```bash
-npm install -g @connorbritain/mssql-mcp-server
+npm install -g @connorbritain/mssql-mcp-server@latest
 # or run ad-hoc
-npx @connorbritain/mssql-mcp-server
+npx @connorbritain/mssql-mcp-server@latest
 ```
 
 ## CLI
@@ -40,7 +40,7 @@ The entrypoint expects env vars:
   "mcpServers": {
     "mssql": {
       "command": "npx",
-      "args": ["@connorbritain/mssql-mcp-server"],
+      "args": ["@connorbritain/mssql-mcp-server@latest"],
       "env": {
         "SERVER_NAME": "127.0.0.1",
         "DATABASE_NAME": "sampledb",
@@ -54,4 +54,8 @@ The entrypoint expects env vars:
 }
 ```
 
-This package ships precompiled JS under `dist/` and is identical to the version used in the repo. See the root README for full documentation and safety guidance.
+This package ships precompiled JS under `dist/`. 
+
+**Full documentation:** See the [main README](../../README.md) for complete feature list, configuration options, and safety guidance.
+
+**Repository:** https://github.com/ConnorBritain/mssql-mcp-server

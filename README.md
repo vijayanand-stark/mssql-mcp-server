@@ -281,6 +281,12 @@ This project was originally forked from Microsoft's [SQL-AI-samples](https://git
 
 ---
 
+## Versioning
+
+This package follows [semver](https://semver.org/). Note: version 1.0.1 is permanently reserved on npm due to a prior publish and cannot be used for future releases.
+
+---
+
 **Repository:** https://github.com/ConnorBritain/mssql-mcp-server  
 **npm package:** https://www.npmjs.com/package/@connorbritain/mssql-mcp-server  
 **Issues & support:** https://github.com/ConnorBritain/mssql-mcp-server/issues

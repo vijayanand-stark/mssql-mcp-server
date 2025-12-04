@@ -3,8 +3,12 @@ import * as path from "path";
 import { InteractiveBrowserCredential } from "@azure/identity";
 import sql from "mssql";
 
+export type AccessLevel = "server" | "database";
+export type TierLevel = "reader" | "writer" | "admin";
+
 export interface EnvironmentConfig {
   name: string;
+  description?: string;
   server: string;
   database: string;
   port?: number;
@@ -14,15 +18,62 @@ export interface EnvironmentConfig {
   domain?: string;
   trustServerCertificate?: boolean;
   connectionTimeout?: number;
+
+  // Governance controls
   readonly?: boolean;
   allowedTools?: string[];
   maxRowsDefault?: number;
-  description?: string;
+  requireApproval?: boolean;
+
+  // Server-level access controls
+  accessLevel?: AccessLevel;
+  allowedDatabases?: string[] | "*";
+  deniedDatabases?: string[];
+
+  // Schema-level access controls
+  allowedSchemas?: string[];
+  deniedSchemas?: string[];
+
+  // Tier designation (for validation against package type)
+  tier?: TierLevel;
 }
 
 export interface EnvironmentsConfig {
   defaultEnvironment?: string;
   environments: EnvironmentConfig[];
+}
+
+/**
+ * Resolves secret placeholders in the format ${secret:NAME}
+ * Currently supports environment variables; extensible for Key Vault, etc.
+ */
+function resolveSecrets(value: string | undefined): string | undefined {
+  if (!value) return value;
+
+  const secretPattern = /\$\{secret:([^}]+)\}/g;
+  return value.replace(secretPattern, (match, secretName) => {
+    const envValue = process.env[secretName];
+    if (envValue === undefined) {
+      console.warn(`Secret '${secretName}' not found in environment variables`);
+      return match; // Return original placeholder if not found
+    }
+    return envValue;
+  });
+}
+
+/**
+ * Recursively resolves secrets in an object's string values
+ */
+function resolveSecretsInConfig<T extends Record<string, any>>(config: T): T {
+  const resolved = { ...config };
+  for (const [key, value] of Object.entries(resolved)) {
+    if (typeof value === "string") {
+      (resolved as any)[key] = resolveSecrets(value);
+    } else if (value && typeof value === "object" && !Array.isArray(value)) {
+      (resolved as any)[key] = resolveSecretsInConfig(value);
+    }
+  }
+  return resolved;
 }
 
 export class EnvironmentManager {
@@ -58,7 +109,9 @@ export class EnvironmentManager {
       this.defaultEnvironment = config.defaultEnvironment;
 
       for (const env of config.environments) {
-        this.environments.set(env.name, env);
+        // Resolve any secret placeholders in the config
+        const resolvedEnv = resolveSecretsInConfig(env);
+        this.environments.set(resolvedEnv.name, resolvedEnv);
       }
 
       console.log(`Loaded ${this.environments.size} environment(s) from ${resolvedPath}`);
@@ -114,6 +167,103 @@ export class EnvironmentManager {
 
   listEnvironments(): EnvironmentConfig[] {
     return Array.from(this.environments.values());
+  }
+
+  /**
+   * Check if the environment allows access to a specific database.
+   * For database-level access, only the configured database is allowed.
+   * For server-level access, checks allowedDatabases/deniedDatabases.
+   */
+  isDatabaseAllowed(environmentName: string | undefined, databaseName: string): { allowed: boolean; reason?: string } {
+    const env = this.getEnvironment(environmentName);
+    const accessLevel = env.accessLevel ?? "database";
+
+    // Database-level access: only the configured database is allowed
+    if (accessLevel === "database") {
+      if (databaseName.toLowerCase() !== env.database.toLowerCase()) {
+        return {
+          allowed: false,
+          reason: `Environment '${env.name}' has database-level access and is restricted to database '${env.database}'. Cannot access '${databaseName}'.`,
+        };
+      }
+      return { allowed: true };
+    }
+
+    // Server-level access: check allow/deny lists
+    const deniedDatabases = env.deniedDatabases ?? [];
+    const allowedDatabases = env.allowedDatabases;
+
+    // Check denied list first (takes precedence)
+    if (deniedDatabases.some((db) => db.toLowerCase() === databaseName.toLowerCase())) {
+      return {
+        allowed: false,
+        reason: `Database '${databaseName}' is in the denied list for environment '${env.name}'.`,
+      };
+    }
+
+    // Check allowed list
+    if (allowedDatabases === "*") {
+      return { allowed: true };
+    }
+
+    if (Array.isArray(allowedDatabases) && allowedDatabases.length > 0) {
+      if (!allowedDatabases.some((db) => db.toLowerCase() === databaseName.toLowerCase())) {
+        return {
+          allowed: false,
+          reason: `Database '${databaseName}' is not in the allowed list for environment '${env.name}'. Allowed: ${allowedDatabases.join(", ")}.`,
+        };
+      }
+    }
+
+    return { allowed: true };
+  }
+
+  /**
+   * Check if a schema.table reference is allowed based on allowedSchemas/deniedSchemas.
+   * Pattern matching supports wildcards (e.g., "audit.*", "*.sensitive_*")
+   */
+  isSchemaAllowed(environmentName: string | undefined, schemaName: string, tableName?: string): { allowed: boolean; reason?: string } {
+    const env = this.getEnvironment(environmentName);
+    const fullRef = tableName ? `${schemaName}.${tableName}` : schemaName;
+
+    const deniedSchemas = env.deniedSchemas ?? [];
+    const allowedSchemas = env.allowedSchemas;
+
+    // Check denied patterns first
+    for (const pattern of deniedSchemas) {
+      if (this.matchesPattern(fullRef, pattern) || this.matchesPattern(schemaName, pattern)) {
+        return {
+          allowed: false,
+          reason: `Schema/table '${fullRef}' matches denied pattern '${pattern}' in environment '${env.name}'.`,
+        };
+      }
+    }
+
+    // If allowedSchemas is specified, check against it
+    if (allowedSchemas && allowedSchemas.length > 0) {
+      const isAllowed = allowedSchemas.some(
+        (pattern) => this.matchesPattern(fullRef, pattern) || this.matchesPattern(schemaName, pattern)
+      );
+      if (!isAllowed) {
+        return {
+          allowed: false,
+          reason: `Schema/table '${fullRef}' does not match any allowed pattern in environment '${env.name}'. Allowed: ${allowedSchemas.join(", ")}.`,
+        };
+      }
+    }
+
+    return { allowed: true };
+  }
+
+  /**
+   * Simple wildcard pattern matching (supports * as wildcard)
+   */
+  private matchesPattern(value: string, pattern: string): boolean {
+    const regexPattern = pattern
+      .replace(/[.+?^${}()|[\]\\]/g, "\\$&") // Escape special regex chars except *
+      .replace(/\*/g, ".*"); // Convert * to .*
+    const regex = new RegExp(`^${regexPattern}$`, "i");
+    return regex.test(value);
   }
 
   async getConnection(environmentName?: string): Promise<sql.ConnectionPool> {

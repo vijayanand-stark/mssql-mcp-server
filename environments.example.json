@@ -1,48 +1,120 @@
 {
-  "defaultEnvironment": "prod",
+  "defaultEnvironment": "dev-local",
   "environments": [
     {
-      "name": "prod",
-      "server": "prod-server.database.windows.net",
+      "name": "client-a-sql01-admin",
+      "description": "Client A SQL Server - Full admin access (server-level)",
+      "server": "10.0.0.100",
+      "database": "master",
+      "port": 1433,
+      "authMode": "windows",
+      "username": "${secret:CLIENT_A_SQL_USERNAME}",
+      "password": "${secret:CLIENT_A_SQL_PASSWORD}",
+      "domain": "CLIENTDOMAIN",
+      "trustServerCertificate": true,
+      "connectionTimeout": 30,
+
+      "accessLevel": "server",
+      "readonly": false,
+      "allowedDatabases": "*",
+      "deniedDatabases": ["tempdb", "model", "ReportServerTempDB"],
+      "tier": "admin"
+    },
+    {
+      "name": "client-a-appdb-readonly",
+      "description": "Client A App Database - Read-only support access",
+      "server": "10.0.0.100",
+      "database": "ApplicationDB_PROD",
+      "port": 1433,
+      "authMode": "sql",
+      "username": "app_readonly",
+      "password": "${secret:CLIENT_A_READONLY_PASSWORD}",
+      "trustServerCertificate": true,
+
+      "accessLevel": "database",
+      "readonly": true,
+      "allowedTools": ["read_data", "list_tables", "describe_table", "search_schema", "profile_table", "inspect_relationships", "explain_query"],
+      "deniedSchemas": ["audit.*", "security.*", "*.credentials*"],
+      "maxRowsDefault": 500,
+      "tier": "reader"
+    },
+    {
+      "name": "client-a-appdb-support",
+      "description": "Client A App Database - Support write access with approval required",
+      "server": "10.0.0.100",
+      "database": "ApplicationDB_PROD",
+      "port": 1433,
+      "authMode": "sql",
+      "username": "app_support",
+      "password": "${secret:CLIENT_A_SUPPORT_PASSWORD}",
+      "trustServerCertificate": true,
+
+      "accessLevel": "database",
+      "readonly": false,
+      "allowedTools": ["read_data", "list_tables", "describe_table", "search_schema", "profile_table", "inspect_relationships", "update_data", "insert_data", "delete_data"],
+      "deniedSchemas": ["audit.*"],
+      "requireApproval": true,
+      "maxRowsDefault": 1000,
+      "tier": "writer"
+    },
+    {
+      "name": "prod-azure",
+      "description": "Azure SQL Production - Read-only via AAD",
+      "server": "mycompany-prod.database.windows.net",
       "database": "ProductionDB",
       "port": 1433,
       "authMode": "aad",
       "trustServerCertificate": false,
       "connectionTimeout": 30,
+
+      "accessLevel": "database",
       "readonly": true,
-      "description": "Production database (read-only for safety)"
+      "tier": "reader"
     },
     {
-      "name": "staging",
-      "server": "staging-server.database.windows.net",
+      "name": "staging-azure",
+      "description": "Azure SQL Staging - Full access via AAD",
+      "server": "mycompany-staging.database.windows.net",
       "database": "StagingDB",
       "authMode": "aad",
+
+      "accessLevel": "database",
       "readonly": false,
-      "description": "Staging environment for testing"
+      "tier": "writer"
     },
     {
       "name": "dev-local",
+      "description": "Local development database",
       "server": "localhost",
       "database": "DevDB",
       "port": 1433,
       "authMode": "sql",
       "username": "sa",
-      "password": "YourStrongPassword123!",
+      "password": "${secret:DEV_SQL_PASSWORD}",
       "trustServerCertificate": true,
+
+      "accessLevel": "server",
       "readonly": false,
-      "description": "Local development database"
+      "allowedDatabases": "*",
+      "tier": "admin"
     },
     {
-      "name": "client-acme-prod",
-      "server": "acme-sql.database.windows.net",
-      "database": "AcmeDB",
+      "name": "client-b-prod",
+      "description": "Client B production database - Restricted read-only",
+      "server": "client-b-sql.database.windows.net",
+      "database": "ClientBDB",
       "authMode": "windows",
-      "username": "DOMAIN\\serviceaccount",
-      "password": "ServiceAccountPassword",
-      "domain": "DOMAIN",
+      "username": "CLIENTB\\serviceaccount",
+      "password": "${secret:CLIENT_B_SERVICE_PASSWORD}",
+      "domain": "CLIENTB",
+
+      "accessLevel": "database",
       "readonly": true,
-      "allowedTools": ["read_data", "list_table", "describe_table", "search_schema"],
-      "description": "Acme Corp production database"
+      "allowedTools": ["read_data", "list_tables", "describe_table", "search_schema"],
+      "allowedSchemas": ["dbo.*", "reports.*"],
+      "deniedSchemas": ["internal.*", "*.password*", "*.credential*"],
+      "maxRowsDefault": 100,
+      "tier": "reader"
     }
   ]
 }

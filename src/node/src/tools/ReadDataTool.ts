@@ -1,19 +1,27 @@
 import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { getEnvironmentManager } from "../config/EnvironmentManager.js";
 
 export class ReadDataTool implements Tool {
   [key: string]: any;
   name = "read_data";
-  description = "Executes a SELECT query on an MSSQL Database table. The query must start with SELECT and cannot contain any destructive SQL operations for security reasons. Automatically limits results to MAX_ROWS_DEFAULT (env var, default 1000) if no TOP/LIMIT clause is present.";
-  
+  description =
+    "Executes a SELECT query on an MSSQL Database table. The query must start with SELECT and cannot contain any destructive SQL operations for security reasons. " +
+    "Automatically limits results to MAX_ROWS_DEFAULT (env var, default 1000) if no TOP/LIMIT clause is present. " +
+    "For server-level access environments, you can optionally specify a database to query using three-part naming.";
+
   private readonly defaultMaxRows: number;
-  
+
   inputSchema = {
     type: "object",
     properties: {
-      query: { 
-        type: "string", 
-        description: "SQL SELECT query to execute (must start with SELECT and cannot contain destructive operations). Example: SELECT * FROM movies WHERE genre = 'comedy'" 
+      query: {
+        type: "string",
+        description: "SQL SELECT query to execute (must start with SELECT and cannot contain destructive operations). Example: SELECT * FROM movies WHERE genre = 'comedy'"
+      },
+      database: {
+        type: "string",
+        description: "Optional: Target database name for server-level access environments. If specified, queries will use three-part naming (database.schema.table). Requires server-level access.",
       },
       maxRows: {
         type: "number",
@@ -258,8 +266,21 @@ export class ReadDataTool implements Tool {
    */
   async run(params: any) {
     try {
-      const { query } = params;
-      
+      const { query, database, environment } = params;
+
+      // Validate database access if a specific database is requested
+      if (database) {
+        const envManager = getEnvironmentManager();
+        const dbCheck = envManager.isDatabaseAllowed(environment, database);
+        if (!dbCheck.allowed) {
+          return {
+            success: false,
+            message: dbCheck.reason || `Access to database '${database}' is not allowed.`,
+            error: "DATABASE_ACCESS_DENIED",
+          };
+        }
+      }
+
       // Validate the query for security issues
       const validation = this.validateQuery(query);
       if (!validation.isValid) {
@@ -267,7 +288,7 @@ export class ReadDataTool implements Tool {
         return {
           success: false,
           message: `Security validation failed: ${validation.error}`,
-          error: 'SECURITY_VALIDATION_FAILED'
+          error: "SECURITY_VALIDATION_FAILED",
         };
       }
 
@@ -275,42 +296,52 @@ export class ReadDataTool implements Tool {
       const maxRowsToUse = this.resolveMaxRows(params);
       const { query: limitedQuery, limitAdded } = this.enforceRowLimit(query, maxRowsToUse);
 
+      // Build the final query - prepend USE [database] if specified
+      let finalQuery = limitedQuery;
+      if (database) {
+        // Escape database name to prevent injection
+        const safeDbName = database.replace(/]/g, "]]");
+        finalQuery = `USE [${safeDbName}]; ${limitedQuery}`;
+      }
+
       // Log the query for audit purposes (in production, consider more secure logging)
-      console.log(`Executing validated SELECT query${limitAdded ? ` (auto-limited to ${maxRowsToUse} rows)` : ''}: ${limitedQuery.substring(0, 200)}${limitedQuery.length > 200 ? '...' : ''}`);
+      console.log(
+        `Executing validated SELECT query${database ? ` on [${database}]` : ""}${limitAdded ? ` (auto-limited to ${maxRowsToUse} rows)` : ""}: ${limitedQuery.substring(0, 200)}${limitedQuery.length > 200 ? "..." : ""}`
+      );
 
       // Execute the query
       const request = new sql.Request();
-      const result = await request.query(limitedQuery);
-      
+      const result = await request.query(finalQuery);
+
       // Sanitize the result
       const sanitizedData = this.sanitizeResult(result.recordset);
-      
+
       return {
         success: true,
-        message: `Query executed successfully. Retrieved ${sanitizedData.length} record(s)${
-          result.recordset.length !== sanitizedData.length 
-            ? ` (limited from ${result.recordset.length} total records)` 
-            : ''
-        }${limitAdded ? ` [auto-limited to ${maxRowsToUse} rows]` : ''}`,
+        message: `Query executed successfully${database ? ` on [${database}]` : ""}. Retrieved ${sanitizedData.length} record(s)${
+          result.recordset.length !== sanitizedData.length
+            ? ` (limited from ${result.recordset.length} total records)`
+            : ""
+        }${limitAdded ? ` [auto-limited to ${maxRowsToUse} rows]` : ""}`,
+        database: database || undefined,
         data: sanitizedData,
         recordCount: sanitizedData.length,
         totalRecords: result.recordset.length,
-        autoLimited: limitAdded
+        autoLimited: limitAdded,
       };
-      
     } catch (error) {
       console.error("Error executing query:", error);
-      
+
       // Don't expose internal error details to prevent information leakage
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      const safeErrorMessage = errorMessage.includes('Invalid object name') 
-        ? errorMessage 
-        : 'Database query execution failed';
-      
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      const safeErrorMessage = errorMessage.includes("Invalid object name")
+        ? errorMessage
+        : "Database query execution failed";
+
       return {
         success: false,
         message: `Failed to execute query: ${safeErrorMessage}`,
-        error: 'QUERY_EXECUTION_FAILED'
+        error: "QUERY_EXECUTION_FAILED",
       };
     }
   }

@@ -37,6 +37,7 @@ import { SearchSchemaTool } from "./tools/SearchSchemaTool.js";
 import { ProfileTableTool } from "./tools/ProfileTableTool.js";
 import { RelationshipInspectorTool } from "./tools/RelationshipInspectorTool.js";
 import { ExplainQueryTool } from "./tools/ExplainQueryTool.js";
+import { ListDatabasesTool } from "./tools/ListDatabasesTool.js";
 import { auditLogger } from "./audit/AuditLogger.js";
 import { getEnvironmentManager } from "./config/EnvironmentManager.js";
 
@@ -406,6 +407,7 @@ const readDataTool = new ReadDataTool();
 const createTableTool = new CreateTableTool();
 const createIndexTool = new CreateIndexTool();
 const listTableTool = new ListTableTool();
+const listDatabasesTool = new ListDatabasesTool();
 const dropTableTool = new DropTableTool();
 const describeTableTool = new DescribeTableTool();
 const searchSchemaTool = new SearchSchemaTool();
@@ -532,6 +534,13 @@ const toolRegistry: ToolRoutingConfig[] = [
     requiredArgs: ["query"],
     baseScore: 1,
   },
+  {
+    tool: listDatabasesTool,
+    name: listDatabasesTool.name,
+    intents: ["schema_discovery", "metadata"],
+    keywords: ["databases", "list databases", "show databases", "dbs"],
+    baseScore: 1.5,
+  },
 ];
 
 const server = new Server(
@@ -577,6 +586,7 @@ const fullToolList = [
   createIndexTool,
   dropTableTool,
   listTableTool,
+  listDatabasesTool,
   searchSchemaTool,
   profileTableTool,
   relationshipInspectorTool,
@@ -617,6 +627,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case listTableTool.name:
         result = await listTableTool.run(args);
+        break;
+      case listDatabasesTool.name:
+        result = await listDatabasesTool.run(args);
         break;
       case dropTableTool.name:
         result = await dropTableTool.run(args);
@@ -767,4 +780,4 @@ function wrapToolRun(tool: { name: string; run: (...args: any[]) => Promise<any>
   };
 }
 
-[insertDataTool, deleteDataTool, readDataTool, updateDataTool, createTableTool, createIndexTool, dropTableTool, listTableTool, describeTableTool, searchSchemaTool, profileTableTool, relationshipInspectorTool, testConnectionTool, explainQueryTool].forEach(wrapToolRun);
+[insertDataTool, deleteDataTool, readDataTool, updateDataTool, createTableTool, createIndexTool, dropTableTool, listTableTool, listDatabasesTool, describeTableTool, searchSchemaTool, profileTableTool, relationshipInspectorTool, testConnectionTool, explainQueryTool].forEach(wrapToolRun);

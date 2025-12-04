@@ -1,12 +1,25 @@
-# SQL Server MCP 🛢
+# MSSQL MCP Server
 
-A **Model Context Protocol (MCP) server for Microsoft SQL Server** built for real-world enterprise database work.
+[![npm version](https://img.shields.io/npm/v/@connorbritain/mssql-mcp-server.svg)](https://www.npmjs.com/package/@connorbritain/mssql-mcp-server)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-I'm a data architect and engineer working in national-scale, highly regulated environments. This server powers my daily workflows—exploring unfamiliar schemas, prototyping queries, validating data pipelines in UAT, then porting that work to production with confidence. If you spend your days inside SQL Server and want AI tooling that actually understands your database, this is for you.
+**Enterprise-grade Model Context Protocol server for Microsoft SQL Server.**
+
+A production-ready MCP server built for real-world database work: exploring unfamiliar schemas, profiling data shape, validating pipelines in UAT, and moving confidently to production. If you work with SQL Server and want AI tooling that understands enterprise database workflows, this is for you.
+
+## Package Tiers
+
+| Package | npm | Tools | Use Case |
+|---------|-----|-------|----------|
+| **[mssql-mcp-reader](https://github.com/ConnorBritain/mssql-mcp-reader)** | `@connorbritain/mssql-mcp-reader` | 14 read-only | Analysts, auditors, safe exploration |
+| **[mssql-mcp-writer](https://github.com/ConnorBritain/mssql-mcp-writer)** | `@connorbritain/mssql-mcp-writer` | 17 (reader + data ops) | Data engineers, ETL developers |
+| **mssql-mcp-server** (this) | `@connorbritain/mssql-mcp-server` | 20 (all tools) | DBAs, full admin access |
+
+Choose the tier that matches your security requirements. All tiers share the same governance controls, audit logging, and multi-environment support.
 
 ---
 
-## Why this exists
+## Why This Exists
 
 Most SQL + AI demos stop at "generate a query." That's table stakes. Real database work means:
 
@@ -450,7 +463,7 @@ See [ROADMAP.md](./ROADMAP.md) for the full enterprise roadmap with status track
 - ✅ Dependency analysis (`inspect_dependencies`) for impact assessment
 
 **Next priorities:**
-- Tiered package builds (reader, writer, admin) for compile-time tool separation
+- MCP registry registration for discoverability
 
 ---
 

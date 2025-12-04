@@ -1,18 +1,18 @@
-# @connorbritain/mssql-mcp-server
+# MSSQL MCP Server
 
-Model Context Protocol server for SQL Server. Enterprise-ready schema discovery, profiling, and safe data operations.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Features
+**Enterprise-grade Model Context Protocol server for Microsoft SQL Server.**
 
-- **20+ tools** for schema discovery, data operations, profiling, and administration
-- **Multi-environment support** – Named database environments (prod, staging, dev) with per-environment policies
-- **Governance controls** – `allowedTools`, `deniedTools`, `allowedSchemas`, `deniedSchemas`, `requireApproval`
-- **Named SQL scripts** – Pre-approved parameterized scripts with tier and environment restrictions
-- **Server-level access** – Query across multiple databases on a single SQL Server instance
-- **Dependency analysis** – Find all objects referencing a table before making changes
-- **Audit logging** – JSON Lines logs with session IDs, auto-redaction of sensitive data
-- **Secret management** – `${secret:NAME}` placeholders resolve from environment variables
-- **Safe by default** – `READONLY` mode, preview/confirm for mutations, automatic row limits
+Production-ready MCP server with 20 tools for schema discovery, data operations, profiling, and administration. Full governance controls for enterprise environments.
+
+## Package Tiers
+
+| Package | Tools | Use Case |
+|---------|-------|----------|
+| [@connorbritain/mssql-mcp-reader](https://www.npmjs.com/package/@connorbritain/mssql-mcp-reader) | 14 read-only | Analysts, auditors |
+| [@connorbritain/mssql-mcp-writer](https://www.npmjs.com/package/@connorbritain/mssql-mcp-writer) | 17 (reader + data ops) | Data engineers |
+| **@connorbritain/mssql-mcp-server** (this) | 20 (all tools) | DBAs, full admin |
 
 ## Tools
 
@@ -29,22 +29,7 @@ Model Context Protocol server for SQL Server. Enterprise-ready schema discovery,
 
 ```bash
 npm install -g @connorbritain/mssql-mcp-server@latest
-# or run directly
-npx @connorbritain/mssql-mcp-server@latest
 ```
-
-## Configuration
-
-| Variable | Required | Notes |
-|----------|----------|-------|
-| `SERVER_NAME` | ✅ | SQL Server hostname/IP |
-| `DATABASE_NAME` | ✅ | Database to target |
-| `SQL_AUTH_MODE` | | `sql`, `windows`, or `aad` (default: `aad`) |
-| `SQL_USERNAME` / `SQL_PASSWORD` | | Required for `sql`/`windows` modes |
-| `READONLY` | | `true` disables write tools |
-| `ENVIRONMENTS_CONFIG_PATH` | | Path to multi-environment JSON config |
-| `SCRIPTS_PATH` | | Path to named SQL scripts directory |
-| `AUDIT_LOG_PATH` | | Custom audit log path (default: `logs/audit.jsonl`) |
 
 ## MCP Client Config
 
@@ -59,51 +44,33 @@ npx @connorbritain/mssql-mcp-server@latest
         "DATABASE_NAME": "mydb",
         "SQL_AUTH_MODE": "sql",
         "SQL_USERNAME": "sa",
-        "SQL_PASSWORD": "YourPassword123",
-        "READONLY": "true"
+        "SQL_PASSWORD": "YourPassword123"
       }
     }
   }
 }
 ```
 
-## Multi-Environment Example
+## Configuration
 
-Create `environments.json`:
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `SERVER_NAME` | Yes | SQL Server hostname/IP |
+| `DATABASE_NAME` | Yes | Target database |
+| `SQL_AUTH_MODE` | | `sql`, `windows`, or `aad` (default: `aad`) |
+| `SQL_USERNAME` / `SQL_PASSWORD` | | Required for `sql`/`windows` modes |
+| `READONLY` | | `true` disables write tools |
+| `ENVIRONMENTS_CONFIG_PATH` | | Multi-environment JSON config |
+| `SCRIPTS_PATH` | | Named SQL scripts directory |
 
-```json
-{
-  "defaultEnvironment": "dev",
-  "scriptsPath": "./scripts",
-  "environments": [
-    {
-      "name": "dev",
-      "server": "localhost",
-      "database": "DevDB",
-      "authMode": "sql",
-      "username": "${secret:DEV_USER}",
-      "password": "${secret:DEV_PASS}",
-      "readonly": false
-    },
-    {
-      "name": "prod",
-      "server": "prod.database.windows.net",
-      "database": "ProdDB",
-      "authMode": "aad",
-      "readonly": true,
-      "requireApproval": true,
-      "auditLevel": "verbose"
-    }
-  ]
-}
-```
+## Features
 
-Then set `ENVIRONMENTS_CONFIG_PATH=/path/to/environments.json`.
+- **Multi-environment support** - Named environments with per-environment policies
+- **Governance controls** - `allowedTools`, `deniedTools`, `allowedSchemas`, `deniedSchemas`
+- **Audit logging** - JSON Lines with session IDs and auto-redaction
+- **Secret management** - `${secret:NAME}` placeholders
+- **Safe mutations** - Preview/confirm for UPDATE and DELETE
 
 ## Documentation
 
-**Full documentation:** [GitHub README](https://github.com/ConnorBritain/mssql-mcp-server#readme)
-
-**Repository:** https://github.com/ConnorBritain/mssql-mcp-server
-
-**Issues:** https://github.com/ConnorBritain/mssql-mcp-server/issues
+**Full docs:** [github.com/ConnorBritain/mssql-mcp-server](https://github.com/ConnorBritain/mssql-mcp-server#readme)

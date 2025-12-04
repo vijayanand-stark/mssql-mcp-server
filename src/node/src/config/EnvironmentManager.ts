@@ -5,6 +5,7 @@ import sql from "mssql";
 
 export type AccessLevel = "server" | "database";
 export type TierLevel = "reader" | "writer" | "admin";
+export type AuditLevel = "none" | "basic" | "verbose";
 
 export interface EnvironmentConfig {
   name: string;
@@ -25,6 +26,7 @@ export interface EnvironmentConfig {
   deniedTools?: string[];
   maxRowsDefault?: number;
   requireApproval?: boolean;
+  auditLevel?: AuditLevel;
 
   // Server-level access controls
   accessLevel?: AccessLevel;

@@ -1,14 +1,18 @@
 import * as fs from "fs";
 import * as path from "path";
 
+export type AuditLevel = "none" | "basic" | "verbose";
+
 export interface AuditLogEntry {
   timestamp: string;
   toolName: string;
+  environment?: string;
   arguments?: Record<string, any>;
   result?: {
     success: boolean;
     recordCount?: number;
     error?: string;
+    data?: any; // Only included in verbose mode
   };
   durationMs?: number;
   sessionId?: string;
@@ -99,24 +103,88 @@ export class AuditLogger {
     args: any,
     result: any,
     durationMs: number,
-    sessionId?: string,
-    userId?: string
+    options?: {
+      sessionId?: string;
+      userId?: string;
+      environment?: string;
+      auditLevel?: AuditLevel;
+    }
   ): void {
+    const auditLevel = options?.auditLevel ?? "basic";
+
+    // Skip logging entirely for 'none' level
+    if (auditLevel === "none") {
+      return;
+    }
+
+    // Basic level: minimal info (tool name, success, timing, environment)
+    if (auditLevel === "basic") {
+      const entry: AuditLogEntry = {
+        timestamp: new Date().toISOString(),
+        toolName,
+        environment: options?.environment,
+        result: {
+          success: result?.success ?? false,
+          recordCount: result?.recordCount ?? result?.rowsAffected,
+          error: result?.error,
+        },
+        durationMs: Math.round(durationMs),
+        sessionId: options?.sessionId,
+        userId: options?.userId,
+      };
+      this.log(entry);
+      return;
+    }
+
+    // Verbose level: full arguments and result data
     const entry: AuditLogEntry = {
       timestamp: new Date().toISOString(),
       toolName,
+      environment: options?.environment,
       arguments: args || {},
       result: {
         success: result?.success ?? false,
         recordCount: result?.recordCount ?? result?.rowsAffected,
         error: result?.error,
+        data: this.truncateResultData(result?.data),
       },
       durationMs: Math.round(durationMs),
-      sessionId,
-      userId,
+      sessionId: options?.sessionId,
+      userId: options?.userId,
     };
 
     this.log(entry);
+  }
+
+  /**
+   * Truncate result data for verbose logging to prevent huge log entries
+   */
+  private truncateResultData(data: any): any {
+    if (!data) return undefined;
+
+    // If it's an array, limit to first 10 items
+    if (Array.isArray(data)) {
+      if (data.length > 10) {
+        return {
+          _truncated: true,
+          _totalCount: data.length,
+          items: data.slice(0, 10),
+        };
+      }
+      return data;
+    }
+
+    // If it's a large object (stringified > 10KB), truncate
+    const stringified = JSON.stringify(data);
+    if (stringified.length > 10000) {
+      return {
+        _truncated: true,
+        _originalSize: stringified.length,
+        preview: stringified.substring(0, 1000) + "...",
+      };
+    }
+
+    return data;
   }
 }
 

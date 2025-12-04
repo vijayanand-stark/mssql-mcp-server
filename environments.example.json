@@ -18,6 +18,7 @@
       "readonly": false,
       "allowedDatabases": "*",
       "deniedDatabases": ["tempdb", "model", "ReportServerTempDB"],
+      "auditLevel": "verbose",
       "tier": "admin"
     },
     {
@@ -36,6 +37,7 @@
       "allowedTools": ["read_data", "list_tables", "describe_table", "search_schema", "profile_table", "inspect_relationships", "explain_query"],
       "deniedSchemas": ["audit.*", "security.*", "*.credentials*"],
       "maxRowsDefault": 500,
+      "auditLevel": "basic",
       "tier": "reader"
     },
     {
@@ -55,6 +57,7 @@
       "deniedSchemas": ["audit.*"],
       "requireApproval": true,
       "maxRowsDefault": 1000,
+      "auditLevel": "verbose",
       "tier": "writer"
     },
     {
@@ -84,7 +87,7 @@
     },
     {
       "name": "dev-local",
-      "description": "Local development database",
+      "description": "Local development database - no audit logging",
       "server": "localhost",
       "database": "DevDB",
       "port": 1433,
@@ -96,6 +99,7 @@
       "accessLevel": "server",
       "readonly": false,
       "allowedDatabases": "*",
+      "auditLevel": "none",
       "tier": "admin"
     },
     {

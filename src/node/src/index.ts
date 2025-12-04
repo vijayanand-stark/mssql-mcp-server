@@ -717,6 +717,17 @@ runServer().catch((error) => {
   process.exit(1);
 });
 
+// Tools that are exempt from requireApproval (metadata-only, no data modification)
+const APPROVAL_EXEMPT_TOOLS = new Set([
+  "list_tables",
+  "list_databases",
+  "list_environments",
+  "describe_table",
+  "test_connection",
+  "search_schema",
+  "inspect_relationships",
+]);
+
 // Patch all tool handlers to ensure SQL connection, policy enforcement, and audit logging
 function wrapToolRun(tool: { name: string; run: (...args: any[]) => Promise<any> }) {
   const originalRun = tool.run.bind(tool);
@@ -725,7 +736,7 @@ function wrapToolRun(tool: { name: string; run: (...args: any[]) => Promise<any>
     const rawArgs = (args[0] ?? {}) as Record<string, any>;
     const requestedEnvironment = typeof rawArgs.environment === "string" ? rawArgs.environment : undefined;
     const envConfig = environmentManager.getEnvironment(requestedEnvironment);
-    
+
     // Build policy object from environment config
     const policy = {
       name: envConfig.name,
@@ -734,6 +745,7 @@ function wrapToolRun(tool: { name: string; run: (...args: any[]) => Promise<any>
       deniedTools: envConfig.deniedTools,
       maxRowsDefault: envConfig.maxRowsDefault,
       requireApproval: envConfig.requireApproval ?? false,
+      auditLevel: envConfig.auditLevel ?? "basic",
     };
 
     // Check denied tools policy (takes precedence)
@@ -763,43 +775,68 @@ function wrapToolRun(tool: { name: string; run: (...args: any[]) => Promise<any>
       };
     }
 
+    // Check requireApproval policy (skip for metadata-only tools)
+    if (policy.requireApproval && !APPROVAL_EXEMPT_TOOLS.has(tool.name)) {
+      const hasConfirmation = rawArgs.confirm === true;
+      if (!hasConfirmation) {
+        return {
+          success: false,
+          requiresApproval: true,
+          message: `Environment '${policy.name}' requires explicit approval for '${tool.name}'. Review the operation and re-run with confirm: true to proceed.`,
+          error: "APPROVAL_REQUIRED",
+          tool: tool.name,
+          environment: policy.name,
+          providedArguments: rawArgs,
+          hint: "Add 'confirm: true' to your arguments after reviewing this operation.",
+        };
+      }
+    }
+
     // Enrich args with environment info and policy
     const toolArgs = {
       ...rawArgs,
       environment: policy.name,
       environmentPolicy: policy,
     };
-    
+
     // Get connection for the specified or default environment
     const pool = await environmentManager.getConnection(policy.name);
-    
+
     // Store the pool in global sql for tools that use sql directly
     (sql as any).globalPool = pool;
-    
+
     try {
       const result = await originalRun(toolArgs);
       const durationMs = Date.now() - startTime;
-      
-      // Audit log the successful invocation
+
+      // Audit log the successful invocation with environment-specific audit level
       auditLogger.logToolInvocation(
         tool.name,
         toolArgs,
         result,
-        durationMs
+        durationMs,
+        {
+          environment: policy.name,
+          auditLevel: policy.auditLevel as any,
+        }
       );
-      
+
       return result;
     } catch (error) {
       const durationMs = Date.now() - startTime;
-      
+
       // Audit log the failed invocation
       auditLogger.logToolInvocation(
         tool.name,
         toolArgs,
         { success: false, error: String(error) },
-        durationMs
+        durationMs,
+        {
+          environment: policy.name,
+          auditLevel: policy.auditLevel as any,
+        }
       );
-      
+
       throw error;
     }
   };

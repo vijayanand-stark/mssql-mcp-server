@@ -39,8 +39,8 @@ This document outlines the strategic approach to credential security, tiered aut
 ### Implementation Plan
 
 **Phase 1 (v0.2.x):** Document all options in README with examples
-- [ ] Add "Credential Security" section to README
-- [ ] Create `examples/` folder with sample scripts:
+- [x] Add "Credential Security" section to README ✅
+- [x] Create `examples/` folder with sample scripts ✅
   - `load-env.ps1` (PowerShell)
   - `load-env.sh` (Bash)
   - `load-from-keyvault.ps1`
@@ -49,10 +49,10 @@ This document outlines the strategic approach to credential security, tiered aut
 **Phase 2 (v0.3.x):** Native secret provider support
 - [ ] Add `SECRETS_PROVIDER` env var (`none`, `env`, `credman`, `keyvault`, `vault`)
 - [ ] Implement pluggable secret resolver in `src/node/src/config/`
-- [ ] Auto-resolve `${secret:NAME}` syntax in config values
+- [x] Auto-resolve `${secret:NAME}` syntax in config values ✅ **Implemented**
 
 **Phase 3 (v0.4.x):** Credential rotation & refresh
-- [ ] Token refresh for Azure AD connections
+- [x] Token refresh for Azure AD connections ✅ (EnvironmentManager handles token expiry)
 - [ ] Secret TTL awareness (re-fetch from vault if expired)
 - [ ] Graceful reconnection on credential change
 
@@ -173,14 +173,16 @@ npm run build:all
 
 **Phase 2 (v0.4.x):** Multi-package publishing
 - [ ] Create build script for tier separation
-- [ ] Publish `mssql-mcp-reader` package
-- [ ] Publish `mssql-mcp-admin` package
+- [ ] Publish `mssql-mcp-reader` package *(renamed from mssql-mcp-standard)*
+- [ ] Publish `mssql-mcp-writer` package *(new mid-tier)*
 - [ ] Update MCP Registry with all three
 
 **Phase 3 (v0.5.x):** Enterprise distribution
 - [ ] Create signed releases for each tier
 - [ ] Document enterprise deployment patterns
 - [ ] Add SBOM (Software Bill of Materials) generation
+
+> **Note:** Decision made to use separate GitHub repos instead of monorepo build. Each tier will be a standalone repo that duplicates shared code for maximum isolation and independent publishing.
 
 ---
 
@@ -227,32 +229,43 @@ Beyond global `READONLY`, enterprises want per-environment restrictions:
 ### Implementation Plan
 
 **Phase 1 (v0.3.x):**
-- [ ] Add `allowedTools` / `deniedTools` to environment schema
-- [ ] Enforce at tool registration time
+- [x] Add `allowedTools` / `deniedTools` to environment schema ✅ **Implemented**
+- [x] Enforce at tool registration time ✅ **Implemented in wrapToolRun**
 
 **Phase 2 (v0.4.x):**
-- [ ] Add schema-level access control
-- [ ] Implement `maxRowsReturned` enforcement
+- [x] Add schema-level access control ✅ **Implemented** (`allowedSchemas`, `deniedSchemas` with wildcard patterns)
+- [x] Implement `maxRowsReturned` enforcement ✅ **Implemented** (environment policy caps user-specified limits)
 
 **Phase 3 (v0.5.x):**
-- [ ] Add `requireApproval` override
-- [ ] Per-environment audit level configuration
+- [x] Add `requireApproval` override ✅ **Implemented** (requires `confirm: true` for non-metadata tools)
+- [x] Per-environment audit level configuration ✅ **Implemented** (`auditLevel`: none/basic/verbose)
+
+**Additional features implemented:**
+- [x] `accessLevel`: `"server"` vs `"database"` for multi-database access
+- [x] `allowedDatabases` / `deniedDatabases` for server-level access control
+- [x] `list_databases` tool for server-level environments
+- [x] `list_environments` tool to discover configured environments
+- [x] `database` parameter on `read_data`, `list_tables`, `describe_table`
+- [x] `tier` designation field for package validation
 
 ---
 
 ## 4. Audit & Compliance
 
-### Current State
-- JSON Lines audit log (`logs/audit.jsonl`)
-- Auto-redaction of sensitive parameters
-- Timestamp, tool name, arguments, results
+### Current State ✅
+- [x] JSON Lines audit log (`logs/audit.jsonl`)
+- [x] Auto-redaction of sensitive parameters
+- [x] Timestamp, tool name, arguments, results
+- [x] Environment name in every log entry
+- [x] Per-environment audit level (`none`, `basic`, `verbose`)
+- [x] Verbose mode includes full arguments and truncated result data
 
 ### Future Enhancements
 
 **Phase 1:** Log enrichment
-- [ ] Add session ID / correlation ID
+- [x] Add environment name to every log entry ✅ **Implemented**
+- [x] Add session ID / correlation ID ✅ **Implemented** (UUID generated per server session)
 - [ ] Include client info (MCP client name, version)
-- [ ] Add environment name to every log entry
 
 **Phase 2:** External log shipping
 - [ ] Syslog support
@@ -313,19 +326,46 @@ Best for: Regulated industries requiring code signing
 ## 7. Next Actions
 
 1. **Immediate (this week):**
-   - [ ] Add credential security section to README
-   - [ ] Create `examples/` folder with loader scripts
+   - [x] Add credential security section to README ✅
+   - [x] Create `examples/` folder with loader scripts ✅
 
 2. **Short-term (v0.3.x):**
-   - [ ] Refactor tools into tier directories
-   - [ ] Create reader-only build
-   - [ ] Publish `@connorbritain/mssql-mcp-reader`
+   - [ ] Create `mssql-mcp-reader` repo (duplicate with read-only tools)
+   - [ ] Create `mssql-mcp-writer` repo (duplicate with read + write tools)
+   - [ ] Publish all three packages to npm
 
 3. **Medium-term (v0.4.x):**
-   - [ ] Implement `SECRETS_PROVIDER` system
-   - [ ] Add per-environment `allowedTools` enforcement
+   - [ ] Implement `SECRETS_PROVIDER` pluggable system
+   - [x] Add per-environment `allowedTools` enforcement ✅ **Implemented**
    - [ ] Create signed release workflow
 
 ---
 
-*Last updated: December 3, 2025*
+## 8. Implementation Status Summary
+
+| Category | Feature | Status |
+|----------|---------|--------|
+| **Credentials** | `${secret:NAME}` resolution | ✅ |
+| **Credentials** | Docs & example scripts | ✅ |
+| **Credentials** | Pluggable providers | ❌ |
+| **Policies** | `allowedTools` / `deniedTools` | ✅ |
+| **Policies** | `allowedSchemas` / `deniedSchemas` | ✅ |
+| **Policies** | `maxRowsDefault` enforcement | ✅ |
+| **Policies** | `requireApproval` | ✅ |
+| **Policies** | `auditLevel` per-env | ✅ |
+| **Access** | `accessLevel` (server/database) | ✅ |
+| **Access** | `allowedDatabases` / `deniedDatabases` | ✅ |
+| **Tools** | `list_databases` | ✅ |
+| **Tools** | `list_environments` | ✅ |
+| **Tools** | `validate_environment_config` | ✅ |
+| **Tools** | `database` param on read tools | ✅ |
+| **Audit** | JSON Lines logging | ✅ |
+| **Audit** | Sensitive data redaction | ✅ |
+| **Audit** | Environment in logs | ✅ |
+| **Audit** | Session/correlation ID | ✅ |
+| **Audit** | External log shipping | ❌ |
+| **Tiers** | Separate repos | ❌ |
+
+---
+
+*Last updated: December 4, 2025*

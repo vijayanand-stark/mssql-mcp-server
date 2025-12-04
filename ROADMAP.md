@@ -41,34 +41,40 @@ Scoring legend:
 
 - **Description**: Connect to SQL via connection strings that pull credentials from secure stores instead of plain text.
 - **Why**: Non-starter for most enterprises if credentials are in config files or editor settings.
-- **Status**: 🚧 Baseline support – current server relies on environment variables for SQL/Windows/AAD auth (@README.md#68-143, @MssqlMcp/Node/src/index.ts#37-138) but lacks integrations with dedicated secret stores or rotation workflows.
+- **Status**: ✅ Implemented – `${secret:NAME}` syntax in environment configs auto-resolves from environment variables. Credential security documentation added to README with example loader scripts for various secret stores.
 - **Key capabilities**:
-  - Support for environment-variable-based secrets initially.
-  - Design-ready hooks for external secret stores (Key Vault, Vault, etc.).
-  - Clear guidance/README on NOT checking secrets into the repo.
-- **Score**: V=5, C=3, F=4, M=5 → **Overall Priority: P0**
+  - ✅ Support for environment-variable-based secrets via `${secret:NAME}` syntax.
+  - 🚧 Design-ready hooks for external secret stores (Key Vault, Vault, etc.) – pluggable provider system planned.
+  - ✅ Clear guidance/README on NOT checking secrets into the repo.
+- **Score**: V=5, C=3, F=4, M=5 → **Overall Priority: P0** ✅ **Complete (Phase 1)**
 
 ### 1.4. Basic Audit Logging (Per Command)
 
 - **Description**: Minimal audit log of every MCP tool invocation that touches SQL.
 - **Why**: Enterprises need to know who ran what, where, and when. Even a simple log file is a huge step up.
-- **Status**: ✅ Implemented – all tool invocations are logged to JSON Lines format (@MssqlMcp/Node/src/audit/AuditLogger.ts#1-116) with timestamp, tool name, arguments (redacted), result status, and duration. Configurable via AUDIT_LOG_PATH env var (defaults to logs/audit.jsonl). Toggle with AUDIT_LOGGING=false.
+- **Status**: ✅ Implemented – all tool invocations are logged to JSON Lines format with timestamp, tool name, environment, arguments (redacted), result status, and duration. Per-environment `auditLevel` controls verbosity: `none`, `basic`, or `verbose`.
 - **Key capabilities**:
-  - Log entries including: timestamp, environment, user/session ID (if available), tool name, and SQL (with parameters, optionally redacted).
-  - Pluggable log sinks (start with file-based logs; later SIEM/cloud sinks).
-- **Score**: V=5, C=3, F=4, M=5 → **Overall Priority: P0–P1**
+  - ✅ Log entries including: timestamp, environment, tool name, and SQL (with parameters, optionally redacted).
+  - ✅ Per-environment audit level configuration (`auditLevel`: none/basic/verbose).
+  - ✅ Verbose mode logs full arguments and truncated result data.
+  - 🚧 Pluggable log sinks (start with file-based logs; later SIEM/cloud sinks).
+- **Score**: V=5, C=3, F=4, M=5 → **Overall Priority: P0–P1** ✅ **Complete**
 
 ### 1.5. Intelligent Tool Routing & Multi-DB Selection
 
 - **Description**: Add an intent-routing layer that selects the correct MCP tool (read vs. write vs. metadata) and the right database profile before executing, reducing "read_data everywhere" behavior.
 - **Why**: Greatly improves UX and safety, especially once configs support multiple databases or tenants. Aligns SQL MCP with the natural-language precision seen in Atlassian/Supabase MCP servers.
-- **Status**: ✅ Implemented – IntentRouter infers environments from natural language prompts ("show tables in prod", "query staging"), selects appropriate tools based on intent/keywords, and gates mutations with confirmation (@MssqlMcp/Node/src/index.ts#189-231). Missing: telemetry loop and LLM-augmented classification.
+- **Status**: ✅ Implemented – IntentRouter infers environments from natural language prompts ("show tables in prod", "query staging"), selects appropriate tools based on intent/keywords, and gates mutations with confirmation. Now also supports server-level access for multi-database environments.
 - **Key capabilities**:
   - ✅ Intent classifier (heuristics) that maps prompts to tool sequences (schema discovery, safe updates, audits, etc.).
   - ✅ Metadata-rich tool registry (side effects, requirements) so routing can reason about options.
   - ✅ Environment selector that chooses the correct connection profile from prompts when multiple databases are configured.
+  - ✅ Server-level multi-database access via `accessLevel: "server"` with `allowedDatabases`/`deniedDatabases` filtering.
+  - ✅ `list_databases` tool for discovering databases on server-level environments.
+  - ✅ `list_environments` tool for discovering configured environments.
+  - ✅ Optional `database` parameter on `read_data`, `list_tables`, `describe_table` for cross-database queries.
   - ⛔ Telemetry loop to learn from mis-routed calls.
-- **Score**: V=5, C=4, F=4, M=5 → **Overall Priority: P0**
+- **Score**: V=5, C=4, F=4, M=5 → **Overall Priority: P0** ✅ **Complete**
 
 ---
 
@@ -228,11 +234,16 @@ Scoring legend:
 
 - **Description**: Policy layer that determines which tools and operations are allowed per environment/client.
 - **Why**: Some clients/environments may prohibit certain actions (bulk export, arbitrary updates).
-- **Status**: ✅ Implemented – Environment configs now accept `readonly`, `allowedTools`, and `maxRowsDefault`, with centralized enforcement inside `wrapToolRun` (@MssqlMcp/Node/src/config/EnvironmentManager.ts, @MssqlMcp/Node/src/index.ts#391-762). Mutating tools are blocked in read-only envs, and disallowed tools are rejected before execution.
+- **Status**: ✅ Implemented – Comprehensive per-environment policy system with centralized enforcement in `wrapToolRun`.
 - **Key capabilities**:
   - ✅ Configurable policy per environment: read-only vs read-write, allowed tool list, row-limit overrides.
-  - ✅ Central enforcement so individual tools don’t duplicate checks.
-- **Score**: V=4, C=4, F=3, M=4 → **Overall Priority: P2–P3**
+  - ✅ Central enforcement so individual tools don't duplicate checks.
+  - ✅ `allowedTools` / `deniedTools` for tool whitelisting/blacklisting.
+  - ✅ `allowedSchemas` / `deniedSchemas` with wildcard pattern matching.
+  - ✅ `maxRowsDefault` enforcement (environment cap overrides user requests).
+  - ✅ `requireApproval` for mandatory confirmation on all operations.
+  - ✅ `auditLevel` per-environment (`none`, `basic`, `verbose`).
+- **Score**: V=4, C=4, F=3, M=4 → **Overall Priority: P2–P3** ✅ **Complete**
 
 ---
 
@@ -262,28 +273,49 @@ Scoring legend:
 
 ## 8. Suggested Implementation Order (High-Level)
 
-1. **P0 – Foundation (highest leverage gaps)**
-   - Environment/connection profiles (⛔) – unlocks multi-environment workflows without multiple MCP processes.
-   - Guardrailed read-only tooling enhancements (🚧) – add automatic row limits + environment-aware defaults around the existing `read_data` tool.
-   - Secrets/credential plumbing (🚧) – document best practices now, add secret-store hooks next.
-   - Basic audit logging (⛔) – persistent per-command log is required before scaling usage.
+1. **P0 – Foundation (highest leverage gaps)** ✅ **COMPLETE**
+   - ✅ Environment/connection profiles – unlocks multi-environment workflows without multiple MCP processes.
+   - ✅ Guardrailed read-only tooling enhancements – automatic row limits + environment-aware defaults.
+   - ✅ Secrets/credential plumbing – `${secret:NAME}` syntax, documentation, example scripts.
+   - ✅ Basic audit logging – persistent per-command log with per-environment audit levels.
 
-2. **P1 – Safety & Operations Enablement**
-   - Safe-update guardrails (🚧) – add preview + transaction control to `update_data`.
-   - Named/template scripts (⛔) – reduce bespoke SQL for repeated fixes.
-   - Deployment & bastion patterns (🚧) – finish the doc set/systemd examples so teams can adopt without guesswork.
-   - Configuration validation & `test_connection` (⛔) – quick reachability checks before running expensive queries.
+2. **P1 – Safety & Operations Enablement** ✅ **MOSTLY COMPLETE**
+   - ✅ Safe-update guardrails – preview + confirmation for `update_data`/`delete_data`.
+   - ⛔ Named/template scripts – reduce bespoke SQL for repeated fixes.
+   - 🚧 Deployment & bastion patterns – finish the doc set/systemd examples so teams can adopt without guesswork.
+   - ✅ Configuration validation & `test_connection` – quick reachability checks.
 
-3. **P2 – Advanced Enterprise Controls**
-   - Dry-run/plan-only execution (⛔).
-   - Enhanced/structured audit logging + redaction (⛔).
-   - Dependency/reference tooling beyond FK introspection (🚧).
-   - Per-client scoping + policy controls (⛔).
-   - Example workflows/playbooks to codify complex operations (⛔).
+3. **P2 – Advanced Enterprise Controls** ✅ **MOSTLY COMPLETE**
+   - ✅ Dry-run/plan-only execution via `explain_query`.
+   - ✅ Enhanced/structured audit logging + redaction with per-environment audit levels.
+   - 🚧 Dependency/reference tooling beyond FK introspection.
+   - ✅ Per-client scoping + policy controls (`allowedTools`, `deniedTools`, `allowedSchemas`, `deniedSchemas`, `requireApproval`).
+   - ⛔ Example workflows/playbooks to codify complex operations.
 
 4. **P3 – Longer-Term & Analytics**
-   - Schema drift/version awareness (⛔).
-   - Session/change-history explorers built atop structured logs (⛔).
-   - Deeper multi-tenant policy automation (⛔).
+   - ⛔ Schema drift/version awareness.
+   - ⛔ Session/change-history explorers built atop structured logs.
+   - ⛔ Deeper multi-tenant policy automation.
+
+---
+
+## 9. Current Implementation Status
+
+| Category | Status | Notes |
+|----------|--------|-------|
+| **Core Querying** | ✅ Complete | Environments, read-only tools, intent routing |
+| **Multi-DB Access** | ✅ Complete | Server-level access, `list_databases`, cross-DB queries |
+| **Safe Writes** | ✅ Complete | Preview, confirmation, row limits |
+| **Authentication** | ✅ Complete | SQL, Windows/NTLM, Azure AD |
+| **Secrets** | ✅ Complete | `${secret:NAME}` resolution from env vars |
+| **Audit Logging** | ✅ Complete | JSON Lines, per-environment levels, redaction |
+| **Policy Controls** | ✅ Complete | All policy fields implemented and enforced |
+| **Schema Discovery** | ✅ Complete | All discovery tools implemented |
+| **Tiered Packages** | ⛔ Not Started | Separate repos for reader/writer/admin |
+| **External Log Shipping** | ⛔ Not Started | SIEM integrations |
+
+---
+
+*Last updated: December 4, 2025*
 
 This file is intended as a living document; as the MCP server evolves and real users adopt it, revisit the scores and priorities based on feedback, incident reports, and where teams actually spend their time.

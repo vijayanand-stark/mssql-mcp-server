@@ -39,8 +39,14 @@ import { RelationshipInspectorTool } from "./tools/RelationshipInspectorTool.js"
 import { ExplainQueryTool } from "./tools/ExplainQueryTool.js";
 import { ListDatabasesTool } from "./tools/ListDatabasesTool.js";
 import { ListEnvironmentsTool } from "./tools/ListEnvironmentsTool.js";
+import { ValidateEnvironmentConfigTool } from "./tools/ValidateEnvironmentConfigTool.js";
 import { auditLogger } from "./audit/AuditLogger.js";
 import { getEnvironmentManager } from "./config/EnvironmentManager.js";
+import * as crypto from "crypto";
+
+// Generate a unique session ID for this server instance
+// This allows correlation of all tool invocations within a single MCP session
+const SESSION_ID = crypto.randomUUID();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Intent Routing (internal, not exposed as a tool)
@@ -410,6 +416,7 @@ const createIndexTool = new CreateIndexTool();
 const listTableTool = new ListTableTool();
 const listDatabasesTool = new ListDatabasesTool();
 const listEnvironmentsTool = new ListEnvironmentsTool();
+const validateEnvironmentConfigTool = new ValidateEnvironmentConfigTool();
 const dropTableTool = new DropTableTool();
 const describeTableTool = new DescribeTableTool();
 const searchSchemaTool = new SearchSchemaTool();
@@ -550,6 +557,13 @@ const toolRegistry: ToolRoutingConfig[] = [
     keywords: ["environments", "list environments", "connections", "configs"],
     baseScore: 1.5,
   },
+  {
+    tool: validateEnvironmentConfigTool,
+    name: validateEnvironmentConfigTool.name,
+    intents: ["metadata"],
+    keywords: ["validate", "check", "config", "configuration", "health"],
+    baseScore: 1.5,
+  },
 ];
 
 const server = new Server(
@@ -577,6 +591,7 @@ const intentRouter = new IntentRouter({
 const readOnlyToolList = [
   listTableTool,
   listEnvironmentsTool,
+  validateEnvironmentConfigTool,
   readDataTool,
   describeTableTool,
   searchSchemaTool,
@@ -598,6 +613,7 @@ const fullToolList = [
   listTableTool,
   listDatabasesTool,
   listEnvironmentsTool,
+  validateEnvironmentConfigTool,
   searchSchemaTool,
   profileTableTool,
   relationshipInspectorTool,
@@ -644,6 +660,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case listEnvironmentsTool.name:
         result = await listEnvironmentsTool.run(args);
+        break;
+      case validateEnvironmentConfigTool.name:
+        result = await validateEnvironmentConfigTool.run(args as any);
         break;
       case dropTableTool.name:
         result = await dropTableTool.run(args);
@@ -722,6 +741,7 @@ const APPROVAL_EXEMPT_TOOLS = new Set([
   "list_tables",
   "list_databases",
   "list_environments",
+  "validate_environment_config",
   "describe_table",
   "test_connection",
   "search_schema",
@@ -816,6 +836,7 @@ function wrapToolRun(tool: { name: string; run: (...args: any[]) => Promise<any>
         result,
         durationMs,
         {
+          sessionId: SESSION_ID,
           environment: policy.name,
           auditLevel: policy.auditLevel as any,
         }
@@ -832,6 +853,7 @@ function wrapToolRun(tool: { name: string; run: (...args: any[]) => Promise<any>
         { success: false, error: String(error) },
         durationMs,
         {
+          sessionId: SESSION_ID,
           environment: policy.name,
           auditLevel: policy.auditLevel as any,
         }
@@ -842,4 +864,4 @@ function wrapToolRun(tool: { name: string; run: (...args: any[]) => Promise<any>
   };
 }
 
-[insertDataTool, deleteDataTool, readDataTool, updateDataTool, createTableTool, createIndexTool, dropTableTool, listTableTool, listDatabasesTool, listEnvironmentsTool, describeTableTool, searchSchemaTool, profileTableTool, relationshipInspectorTool, testConnectionTool, explainQueryTool].forEach(wrapToolRun);
+[insertDataTool, deleteDataTool, readDataTool, updateDataTool, createTableTool, createIndexTool, dropTableTool, listTableTool, listDatabasesTool, listEnvironmentsTool, validateEnvironmentConfigTool, describeTableTool, searchSchemaTool, profileTableTool, relationshipInspectorTool, testConnectionTool, explainQueryTool].forEach(wrapToolRun);

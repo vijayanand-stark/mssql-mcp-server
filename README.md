@@ -146,7 +146,7 @@ NTLM-based auth using domain credentials. Ideal for on-prem SQL Server in Active
 }
 ```
 
-**Azure AD Authentication** (`SQL_AUTH_MODE=aad` or omit)  
+**Azure AD Authentication** (`SQL_AUTH_MODE=aad` or omit)
 Interactive browser-based Azure AD authentication. Opens a browser window on first connection to authenticate. Best for Azure SQL Database with AAD-only auth.
 
 ```json
@@ -156,6 +156,68 @@ Interactive browser-based Azure AD authentication. Opens a browser window on fir
   "SQL_AUTH_MODE": "aad"
 }
 ```
+
+### Credential security
+
+**Never hardcode credentials in config files that might be committed to version control.** The server supports several approaches for secure credential management:
+
+#### Secret placeholders (recommended)
+
+Use `${secret:NAME}` syntax in your `environments.json` to reference environment variables:
+
+```json
+{
+  "name": "prod",
+  "server": "prod-server.database.windows.net",
+  "username": "${secret:PROD_SQL_USERNAME}",
+  "password": "${secret:PROD_SQL_PASSWORD}"
+}
+```
+
+The server resolves these placeholders at startup by reading from environment variables. Set the corresponding env vars before launching:
+
+```bash
+export PROD_SQL_USERNAME="myuser"
+export PROD_SQL_PASSWORD="mypassword"
+```
+
+#### Platform-specific secret stores
+
+For enhanced security, load credentials from your platform's native secret store before launching the MCP server. Example scripts are provided in the `examples/` folder:
+
+| Platform | Script | Secret Store |
+|----------|--------|--------------|
+| Windows | `load-from-credential-manager.ps1` | Windows Credential Manager |
+| Windows | `load-from-keyvault.ps1` | Azure Key Vault |
+| macOS | `load-env.sh` | macOS Keychain (via `security` CLI) |
+| Linux | `load-env.sh` | Environment variables / `.env` file |
+
+**Windows Credential Manager example:**
+
+```powershell
+# Store credential (one-time setup)
+cmdkey /generic:MSSQL_PROD /user:myuser /pass:mypassword
+
+# Retrieve and set as env var before launching
+$cred = cmdkey /list:MSSQL_PROD | Select-String "User:"
+# ... (see examples/load-from-credential-manager.ps1 for full script)
+```
+
+**Azure Key Vault example:**
+
+```powershell
+# Retrieve secret from Key Vault
+$secret = az keyvault secret show --vault-name "my-vault" --name "sql-password" --query "value" -o tsv
+$env:PROD_SQL_PASSWORD = $secret
+```
+
+#### Security tiers
+
+| Use Case | Recommended Approach |
+|----------|---------------------|
+| Local development | `.env` file (gitignored) or inline env vars |
+| Team/corporate | Windows Credential Manager, macOS Keychain, or 1Password/Bitwarden CLI |
+| Enterprise/regulated | Azure Key Vault, HashiCorp Vault, AWS Secrets Manager |
 
 ### Multiple instances / Docker
 
@@ -251,17 +313,18 @@ The discovery tools (`search_schema`, `profile_table`, `inspect_relationships`) 
 See [ROADMAP.md](./ROADMAP.md) for the full enterprise roadmap with status tracking.
 
 **Recently shipped:**
-- ✅ Multi-environment connection profiles
-- ✅ Automatic row limiting for SELECT queries
-- ✅ Audit logging with sensitive data redaction
+- ✅ Multi-environment connection profiles with governance controls
+- ✅ Per-environment policy controls (`allowedTools`, `deniedTools`, `requireApproval`, `maxRowsDefault`)
+- ✅ Server-level access with database filtering (`accessLevel: "server"`)
+- ✅ Schema-level access control (`allowedSchemas`, `deniedSchemas`)
+- ✅ Audit logging with session IDs and per-environment log levels
+- ✅ Configuration validation tool (`validate_environment_config`)
+- ✅ Secret placeholder resolution (`${secret:NAME}`)
 - ✅ Preview/confirm flows for UPDATE and DELETE
-- ✅ Intent-based environment inference from natural language
 
 **Next priorities:**
-- ✅ Query plan preview (`explain_query` with SHOWPLAN) - shipped!
-- Per-environment policy controls
 - Named/template SQL scripts for repeatable operations
-- Configuration validation and health checks
+- Tiered package builds (reader, writer, admin)
 
 ---
 

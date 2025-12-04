@@ -38,6 +38,7 @@ import { ProfileTableTool } from "./tools/ProfileTableTool.js";
 import { RelationshipInspectorTool } from "./tools/RelationshipInspectorTool.js";
 import { ExplainQueryTool } from "./tools/ExplainQueryTool.js";
 import { ListDatabasesTool } from "./tools/ListDatabasesTool.js";
+import { ListEnvironmentsTool } from "./tools/ListEnvironmentsTool.js";
 import { auditLogger } from "./audit/AuditLogger.js";
 import { getEnvironmentManager } from "./config/EnvironmentManager.js";
 
@@ -408,6 +409,7 @@ const createTableTool = new CreateTableTool();
 const createIndexTool = new CreateIndexTool();
 const listTableTool = new ListTableTool();
 const listDatabasesTool = new ListDatabasesTool();
+const listEnvironmentsTool = new ListEnvironmentsTool();
 const dropTableTool = new DropTableTool();
 const describeTableTool = new DescribeTableTool();
 const searchSchemaTool = new SearchSchemaTool();
@@ -541,6 +543,13 @@ const toolRegistry: ToolRoutingConfig[] = [
     keywords: ["databases", "list databases", "show databases", "dbs"],
     baseScore: 1.5,
   },
+  {
+    tool: listEnvironmentsTool,
+    name: listEnvironmentsTool.name,
+    intents: ["metadata"],
+    keywords: ["environments", "list environments", "connections", "configs"],
+    baseScore: 1.5,
+  },
 ];
 
 const server = new Server(
@@ -567,6 +576,7 @@ const intentRouter = new IntentRouter({
 
 const readOnlyToolList = [
   listTableTool,
+  listEnvironmentsTool,
   readDataTool,
   describeTableTool,
   searchSchemaTool,
@@ -587,6 +597,7 @@ const fullToolList = [
   dropTableTool,
   listTableTool,
   listDatabasesTool,
+  listEnvironmentsTool,
   searchSchemaTool,
   profileTableTool,
   relationshipInspectorTool,
@@ -630,6 +641,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case listDatabasesTool.name:
         result = await listDatabasesTool.run(args);
+        break;
+      case listEnvironmentsTool.name:
+        result = await listEnvironmentsTool.run(args);
         break;
       case dropTableTool.name:
         result = await dropTableTool.run(args);
@@ -717,8 +731,19 @@ function wrapToolRun(tool: { name: string; run: (...args: any[]) => Promise<any>
       name: envConfig.name,
       readonly: envConfig.readonly ?? false,
       allowedTools: envConfig.allowedTools,
+      deniedTools: envConfig.deniedTools,
       maxRowsDefault: envConfig.maxRowsDefault,
+      requireApproval: envConfig.requireApproval ?? false,
     };
+
+    // Check denied tools policy (takes precedence)
+    if (policy.deniedTools && policy.deniedTools.length > 0 && policy.deniedTools.includes(tool.name)) {
+      return {
+        success: false,
+        message: `Tool '${tool.name}' is explicitly denied in environment '${policy.name}'.`,
+        error: "TOOL_DENIED",
+      };
+    }
 
     // Check allowed tools policy
     if (policy.allowedTools && policy.allowedTools.length > 0 && !policy.allowedTools.includes(tool.name)) {
@@ -780,4 +805,4 @@ function wrapToolRun(tool: { name: string; run: (...args: any[]) => Promise<any>
   };
 }
 
-[insertDataTool, deleteDataTool, readDataTool, updateDataTool, createTableTool, createIndexTool, dropTableTool, listTableTool, listDatabasesTool, describeTableTool, searchSchemaTool, profileTableTool, relationshipInspectorTool, testConnectionTool, explainQueryTool].forEach(wrapToolRun);
+[insertDataTool, deleteDataTool, readDataTool, updateDataTool, createTableTool, createIndexTool, dropTableTool, listTableTool, listDatabasesTool, listEnvironmentsTool, describeTableTool, searchSchemaTool, profileTableTool, relationshipInspectorTool, testConnectionTool, explainQueryTool].forEach(wrapToolRun);

@@ -213,16 +213,29 @@ export class ReadDataTool implements Tool {
   }
 
   /**
-   * Resolves the maximum number of rows to return based on the input parameters and environment
-   * @param params Input parameters
+   * Resolves the maximum number of rows to return based on the input parameters and environment policy.
+   * Priority: environment policy maxRowsDefault (enforced cap) > user-specified maxRows > tool default
+   * @param params Input parameters including environmentPolicy
    * @returns Maximum number of rows to return
    */
   private resolveMaxRows(params: any): number {
-    const maxRows = params.maxRows;
-    if (maxRows && !isNaN(parseInt(maxRows, 10))) {
-      return Math.min(Math.max(parseInt(maxRows, 10), 1), 100000); // Clamp between 1 and 100k
+    const envPolicyMax = params.environmentPolicy?.maxRowsDefault;
+    const userMaxRows = params.maxRows;
+
+    // Start with tool default
+    let effectiveMax = this.defaultMaxRows;
+
+    // User can override up to tool default
+    if (userMaxRows && !isNaN(parseInt(userMaxRows, 10))) {
+      effectiveMax = Math.min(Math.max(parseInt(userMaxRows, 10), 1), 100000);
     }
-    return this.defaultMaxRows;
+
+    // Environment policy cap takes precedence (cannot exceed)
+    if (envPolicyMax && !isNaN(envPolicyMax)) {
+      effectiveMax = Math.min(effectiveMax, envPolicyMax);
+    }
+
+    return effectiveMax;
   }
 
   /**

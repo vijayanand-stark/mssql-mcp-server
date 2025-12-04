@@ -22,6 +22,7 @@ export interface EnvironmentConfig {
   // Governance controls
   readonly?: boolean;
   allowedTools?: string[];
+  deniedTools?: string[];
   maxRowsDefault?: number;
   requireApproval?: boolean;
 

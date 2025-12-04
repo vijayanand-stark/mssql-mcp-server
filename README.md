@@ -123,8 +123,7 @@ npm install
 npm run build
 ```
 
-Then point your MCP client to `src/node/dist/index.js` with your connection env vars
-```
+Then point your MCP client to `src/node/dist/index.js` with your connection env vars.
 
 ---
 

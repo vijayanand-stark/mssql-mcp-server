@@ -4,7 +4,7 @@ import { Tool } from "@modelcontextprotocol/sdk/types.js";
 export class DeleteDataTool implements Tool {
   [key: string]: any;
   name = "delete_data";
-  description = "Deletes rows from an MSSQL Database table with preview and confirmation. Shows affected rows before committing changes. The WHERE clause must be provided for security.";
+  description = "Deletes rows from an MSSQL table with preview and confirmation. Requires WHERE clause for safety.";
   
   inputSchema = {
     type: "object",

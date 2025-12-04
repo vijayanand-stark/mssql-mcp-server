@@ -95,12 +95,15 @@ Scoring legend:
 
 - **Description**: Library of parameterized, reviewed SQL scripts for common operations, exposed as MCP tools.
 - **Why**: Real data fixes are often repeatable playbooks; templating them increases safety and speed.
-- **Status**: ⛔ Not started – no script catalog or tooling exists today; all queries are free-form per tool call.
+- **Status**: ✅ Implemented – `list_scripts` and `run_script` tools with full governance controls (@MssqlMcp/Node/src/tools/ListScriptsTool.ts, @MssqlMcp/Node/src/tools/RunScriptTool.ts, @MssqlMcp/Node/src/config/ScriptManager.ts).
 - **Key capabilities**:
-  - Scripts stored in repo (e.g., `scripts/fix_duplicate_claims_v3.sql`).
-  - MCP tool `run_named_script(name, parameters)` that validates allowed parameters.
-  - Optional dry-run mode with preview.
-- **Score**: V=4, C=3, F=4, M=4 → **Overall Priority: P1**
+  - ✅ Scripts stored in configurable directory with `scripts.json` manifest.
+  - ✅ `list_scripts` tool to discover available scripts with filtering by environment and tier.
+  - ✅ `run_script(name, parameters)` with parameterized query execution.
+  - ✅ Preview mode (`preview: true`) shows resolved SQL without execution.
+  - ✅ Per-script governance: `tier`, `requiresApproval`, `readonly`, `allowedEnvironments`, `deniedEnvironments`.
+  - ✅ Environment-aware: scripts respect `requireApproval` and `readonly` environment policies.
+- **Score**: V=4, C=3, F=4, M=4 → **Overall Priority: P1** ✅ **Complete**
 
 ### 2.3. Dry-Run / Plan-Only Execution
 
@@ -200,11 +203,15 @@ Scoring legend:
 
 - **Description**: Find where a table/column is referenced (FKs, views, procedures).
 - **Why**: Helps assess impact of changes and understand data flow.
-- **Status**: 🚧 Partially implemented – `inspect_relationships` returns inbound/outbound FK mappings but does not yet scan views/procs for references (@MssqlMcp/Node/src/tools/RelationshipInspectorTool.ts#1-214).
+- **Status**: ✅ Implemented – `inspect_relationships` returns FK mappings; new `inspect_dependencies` tool uses `sys.sql_expression_dependencies` to find all referencing objects (@MssqlMcp/Node/src/tools/InspectDependenciesTool.ts).
 - **Key capabilities**:
-  - `find_references(object_name)` querying system catalogs.
-  - Optionally parse view/proc definitions.
-- **Score**: V=4, C=4, F=4, M=4 → **Overall Priority: P2**
+  - ✅ `inspect_relationships` for FK relationships (inbound/outbound).
+  - ✅ `inspect_dependencies` for full dependency analysis:
+    - Objects that reference a table/view (views, stored procedures, functions, triggers, foreign keys).
+    - Objects that the target references (tables, views, functions).
+    - Impact analysis hint when dependents exist.
+  - ✅ Categorized output by object type for easy consumption.
+- **Score**: V=4, C=4, F=4, M=4 → **Overall Priority: P2** ✅ **Complete**
 
 ### 5.3. Schema Drift & Version Awareness
 
@@ -279,16 +286,16 @@ Scoring legend:
    - ✅ Secrets/credential plumbing – `${secret:NAME}` syntax, documentation, example scripts.
    - ✅ Basic audit logging – persistent per-command log with per-environment audit levels.
 
-2. **P1 – Safety & Operations Enablement** ✅ **MOSTLY COMPLETE**
+2. **P1 – Safety & Operations Enablement** ✅ **COMPLETE**
    - ✅ Safe-update guardrails – preview + confirmation for `update_data`/`delete_data`.
-   - ⛔ Named/template scripts – reduce bespoke SQL for repeated fixes.
+   - ✅ Named/template scripts – `list_scripts` and `run_script` tools with full governance.
    - 🚧 Deployment & bastion patterns – finish the doc set/systemd examples so teams can adopt without guesswork.
    - ✅ Configuration validation & `test_connection` – quick reachability checks.
 
-3. **P2 – Advanced Enterprise Controls** ✅ **MOSTLY COMPLETE**
+3. **P2 – Advanced Enterprise Controls** ✅ **COMPLETE**
    - ✅ Dry-run/plan-only execution via `explain_query`.
    - ✅ Enhanced/structured audit logging + redaction with per-environment audit levels.
-   - 🚧 Dependency/reference tooling beyond FK introspection.
+   - ✅ Dependency/reference tooling – `inspect_dependencies` for full impact analysis.
    - ✅ Per-client scoping + policy controls (`allowedTools`, `deniedTools`, `allowedSchemas`, `deniedSchemas`, `requireApproval`).
    - ⛔ Example workflows/playbooks to codify complex operations.
 
@@ -297,9 +304,55 @@ Scoring legend:
    - ⛔ Session/change-history explorers built atop structured logs.
    - ⛔ Deeper multi-tenant policy automation.
 
+5. **P4 – Remote Access & Enterprise Deployment**
+   - ⛔ Remote MCP proxy pattern for bastion/jump host scenarios.
+   - ⛔ Centralized MCP management tooling.
+
 ---
 
-## 9. Current Implementation Status
+## 10. Remote Access Patterns
+
+MCP servers run locally on the client machine as child processes of the IDE (Windsurf, Claude Desktop, VS Code). They communicate via stdio, not network sockets. This creates challenges for environments where SQL Server is only reachable through jump hosts or RDP sessions.
+
+### Current Options
+
+**Option A: Install MCP client on jump host (recommended for now)**
+RDP to the jump host, install Windsurf/Claude Desktop there, configure the MCP server. The server runs locally on the jump host and can reach SQL Server directly.
+
+**Option B: SSH tunnel (if available)**
+If SSH access exists to the jump host, tunnel SQL traffic:
+```bash
+ssh -L 1433:sql-server:1433 user@jump-host
+```
+Then configure MCP to connect to `localhost:1433`. Traffic tunnels through SSH.
+
+**Option C: VPN with database port access**
+Some VPN configurations allow direct database access. Check with client IT if port 1433 is routable.
+
+### Future: Remote MCP Proxy (exploratory)
+
+A potential architecture for enterprise scenarios where installing tools on jump hosts isn't feasible:
+
+```
+┌─────────────┐         HTTPS/WSS        ┌─────────────────┐       TCP 1433      ┌────────────┐
+│  Windsurf   │◄────────────────────────►│  MCP Proxy      │◄───────────────────►│ SQL Server │
+│  (local)    │                          │  (on jump host) │                     │            │
+└─────────────┘                          └─────────────────┘                     └────────────┘
+```
+
+The proxy would:
+- Run on the jump host as a lightweight service
+- Expose MCP protocol over WebSocket or HTTP
+- Handle authentication and connection pooling
+- Allow local IDEs to connect to remote MCP servers
+
+This could evolve into a **centralized MCP management platform** - a potential product avenue for enterprises managing multiple database environments, jump hosts, and access policies from a single control plane.
+
+**Status:** Exploratory. The MCP SDK supports custom transports, making this technically feasible. Prioritization depends on demand.
+
+---
+
+## 11. Current Implementation Status
 
 | Category | Status | Notes |
 |----------|--------|-------|
@@ -311,6 +364,8 @@ Scoring legend:
 | **Audit Logging** | ✅ Complete | JSON Lines, per-environment levels, redaction |
 | **Policy Controls** | ✅ Complete | All policy fields implemented and enforced |
 | **Schema Discovery** | ✅ Complete | All discovery tools implemented |
+| **Dependency Analysis** | ✅ Complete | `inspect_dependencies` for impact analysis |
+| **Named Scripts** | ✅ Complete | `list_scripts`, `run_script` with governance |
 | **Tiered Packages** | ⛔ Not Started | Separate repos for reader/writer/admin |
 | **External Log Shipping** | ⛔ Not Started | SIEM integrations |
 

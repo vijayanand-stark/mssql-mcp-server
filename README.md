@@ -33,11 +33,37 @@ This server is built around those realities. It's stable, secure by default, and
 
 ### Key tools at a glance
 
-- `search_schema` (read) – Wildcard/fuzzy discovery with pagination + fuzzy suggestions.
-- `profile_table` (read) – Column stats, percentile metrics, limited sample exposure.
-- `inspect_relationships` (read) – FK maps in both directions.
-- `read_data` / `describe_table` / `list_table` (read) – Bread-and-butter querying + schema inspection.
-- `insert_data`, `update_data`, `delete_data`, `create_table`, `create_index`, `drop_table` (write) – Opt-in CRUD/DDL helpers for agent workflows (auto-disabled when `READONLY=true`). UPDATE and DELETE require preview confirmation.
+**Discovery & Schema:**
+- `search_schema` – Wildcard/fuzzy search across tables and columns with pagination.
+- `describe_table` – Column definitions, types, nullability, keys.
+- `list_table` – List all tables in a database with optional filtering.
+- `list_databases` – List databases on server-level environments.
+- `list_environments` – Show configured environments and their policies.
+
+**Profiling & Analysis:**
+- `profile_table` – Column stats (null %, cardinality, min/max/avg/median/p90) with optional sample rows.
+- `inspect_relationships` – FK mappings in both directions.
+- `inspect_dependencies` – Full dependency analysis (views, procs, functions, triggers referencing an object).
+- `explain_query` – Execution plan analysis via SHOWPLAN.
+
+**Data Operations:**
+- `read_data` – Safe SELECT with automatic row limits.
+- `insert_data` – Parameterized inserts (single or batch).
+- `update_data` – Preview affected rows, require confirmation.
+- `delete_data` – Preview affected rows, require confirmation.
+
+**DDL Operations:**
+- `create_table` – Create tables with column definitions.
+- `create_index` – Create indexes on existing tables.
+- `drop_table` – Drop tables (requires confirmation).
+
+**Named Scripts:**
+- `list_scripts` – Show available pre-approved SQL scripts.
+- `run_script` – Execute named scripts with parameters and governance controls.
+
+**Operations:**
+- `test_connection` – Verify connectivity and latency.
+- `validate_environment_config` – Check environment configuration for errors.
 
 ---
 
@@ -108,6 +134,7 @@ Then point your MCP client to `src/node/dist/index.js` with your connection env 
 | `MAX_ROWS_DEFAULT` | | Auto-limit for SELECT queries without TOP/LIMIT (default: `1000`, range: 1-100000) |
 | `REQUIRE_MUTATION_CONFIRMATION` | | Set to `false` to skip preview/confirm for mutations (default: `true`) |
 | `ENVIRONMENTS_CONFIG_PATH` | | Path to JSON file defining multiple named database environments |
+| `SCRIPTS_PATH` | | Path to named SQL scripts directory (must contain `scripts.json`) |
 | `AUDIT_LOG_PATH` | | Path for audit log file (default: `logs/audit.jsonl`) |
 | `AUDIT_LOGGING` | | Set to `false` to disable audit logging (default: `true`) |
 | `AUDIT_REDACT_SENSITIVE` | | Set to `false` to disable redaction of sensitive args (default: `true`) |
@@ -277,6 +304,104 @@ Then point to it:
 
 Tools accept an optional `environment` parameter to target a specific environment. The IntentRouter can also infer environments from natural language (e.g., "show tables in prod" → uses `prod` environment).
 
+### Environment policy fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Environment identifier |
+| `server` | string | SQL Server hostname |
+| `database` | string | Default database |
+| `port` | number | Port (default: 1433) |
+| `authMode` | string | `sql`, `windows`, or `aad` |
+| `username` / `password` | string | Credentials (supports `${secret:NAME}` placeholders) |
+| `domain` | string | Domain for Windows auth |
+| `trustServerCertificate` | boolean | Trust self-signed certs |
+| `readonly` | boolean | Disable all write operations |
+| `tier` | string | `reader`, `writer`, or `admin` |
+| `accessLevel` | string | `database` (default) or `server` for multi-DB access |
+| `allowedDatabases` / `deniedDatabases` | string[] | Filter databases for server-level access |
+| `allowedTools` / `deniedTools` | string[] | Whitelist/blacklist specific tools |
+| `allowedSchemas` / `deniedSchemas` | string[] | Schema patterns (supports wildcards like `dbo.*`) |
+| `maxRowsDefault` | number | Cap query results (overrides user requests) |
+| `requireApproval` | boolean | Force confirmation for all non-metadata operations |
+| `auditLevel` | string | `none`, `basic`, or `verbose` |
+| `description` | string | Human-readable description |
+
+### Named SQL scripts
+
+For repeatable operations, you can define pre-approved SQL scripts that agents can execute with parameters. This is safer than ad-hoc SQL since scripts are reviewed in advance.
+
+**Setup:**
+
+1. Create a scripts directory with a `scripts.json` manifest:
+
+```json
+{
+  "scripts": [
+    {
+      "name": "find_user_by_email",
+      "description": "Look up a user by email address",
+      "file": "find_user_by_email.sql",
+      "parameters": [
+        { "name": "email", "type": "string", "required": true }
+      ],
+      "readonly": true,
+      "tier": "reader"
+    },
+    {
+      "name": "deactivate_user",
+      "description": "Deactivate a user account",
+      "file": "deactivate_user.sql",
+      "parameters": [
+        { "name": "userId", "type": "number", "required": true }
+      ],
+      "tier": "writer",
+      "requiresApproval": true,
+      "deniedEnvironments": ["prod"]
+    }
+  ]
+}
+```
+
+2. Create the SQL files (use `@paramName` for parameters):
+
+```sql
+-- find_user_by_email.sql
+SELECT UserId, Email, DisplayName, CreatedAt
+FROM Users
+WHERE Email = @email
+```
+
+3. Configure the path in `environments.json`:
+
+```json
+{
+  "defaultEnvironment": "dev",
+  "scriptsPath": "./scripts",
+  "environments": [...]
+}
+```
+
+Or via environment variable: `SCRIPTS_PATH=/path/to/scripts`
+
+**Script governance fields:**
+
+| Field | Description |
+|-------|-------------|
+| `tier` | Minimum tier required (`reader`, `writer`, `admin`) |
+| `readonly` | Mark as safe for readonly environments |
+| `requiresApproval` | Require `confirm: true` to execute |
+| `allowedEnvironments` | Restrict to specific environments |
+| `deniedEnvironments` | Block from specific environments |
+
+**Usage:**
+
+```
+> Use list_scripts to see available scripts
+> Run the find_user_by_email script with email "user@example.com"
+> Preview the deactivate_user script with userId 123
+```
+
 ---
 
 ## ⚠️ Safety & Prudence
@@ -321,10 +446,11 @@ See [ROADMAP.md](./ROADMAP.md) for the full enterprise roadmap with status track
 - ✅ Configuration validation tool (`validate_environment_config`)
 - ✅ Secret placeholder resolution (`${secret:NAME}`)
 - ✅ Preview/confirm flows for UPDATE and DELETE
+- ✅ Named SQL scripts (`list_scripts`, `run_script`) with full governance
+- ✅ Dependency analysis (`inspect_dependencies`) for impact assessment
 
 **Next priorities:**
-- Named/template SQL scripts for repeatable operations
-- Tiered package builds (reader, writer, admin)
+- Tiered package builds (reader, writer, admin) for compile-time tool separation
 
 ---
 

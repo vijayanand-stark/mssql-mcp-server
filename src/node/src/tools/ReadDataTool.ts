@@ -5,10 +5,7 @@ import { getEnvironmentManager } from "../config/EnvironmentManager.js";
 export class ReadDataTool implements Tool {
   [key: string]: any;
   name = "read_data";
-  description =
-    "Executes a SELECT query on an MSSQL Database table. The query must start with SELECT and cannot contain any destructive SQL operations for security reasons. " +
-    "Automatically limits results to MAX_ROWS_DEFAULT (env var, default 1000) if no TOP/LIMIT clause is present. " +
-    "For server-level access environments, you can optionally specify a database to query using three-part naming.";
+  description = "Executes a read-only SELECT query. Auto-limits results if no TOP clause present. Blocks destructive operations.";
 
   private readonly defaultMaxRows: number;
 

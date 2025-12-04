@@ -44,6 +44,7 @@ export interface EnvironmentConfig {
 export interface EnvironmentsConfig {
   defaultEnvironment?: string;
   environments: EnvironmentConfig[];
+  scriptsPath?: string;  // Path to named SQL scripts directory
 }
 
 /**

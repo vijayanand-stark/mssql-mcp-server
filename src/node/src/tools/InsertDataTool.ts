@@ -3,49 +3,7 @@ import { Tool } from "@modelcontextprotocol/sdk/types.js";
 export class InsertDataTool implements Tool {
   [key: string]: any;
   name = "insert_data";
-  description = `Inserts data into an MSSQL Database table. Supports both single record insertion and multiple record insertion using standard SQL INSERT with VALUES clause.
-FORMAT EXAMPLES:
-Single Record Insert:
-{
-  "tableName": "Users",
-  "data": {
-    "name": "John Doe",
-    "email": "john@example.com",
-    "age": 30,
-    "isActive": true,
-    "createdDate": "2023-01-15"
-  }
-}
-Multiple Records Insert:
-{
-  "tableName": "Users", 
-  "data": [
-    {
-      "name": "John Doe",
-      "email": "john@example.com", 
-      "age": 30,
-      "isActive": true,
-      "createdDate": "2023-01-15"
-    },
-    {
-      "name": "Jane Smith",
-      "email": "jane@example.com",
-      "age": 25, 
-      "isActive": false,
-      "createdDate": "2023-01-16"
-    }
-  ]
-}
-GENERATED SQL FORMAT:
-- Single: INSERT INTO table (col1, col2) VALUES (@param1, @param2)
-- Multiple: INSERT INTO table (col1, col2) VALUES (@param1, @param2), (@param3, @param4), ...
-IMPORTANT RULES:
-- For single record: Use a single object for the 'data' field
-- For multiple records: Use an array of objects for the 'data' field
-- All objects in array must have identical column names
-- Column names must match the actual database table columns exactly
-- Values should match the expected data types (string, number, boolean, date)
-- Use proper date format for date columns (YYYY-MM-DD or ISO format)`;
+  description = "Inserts one or more records into an MSSQL table. Pass data as an object (single) or array of objects (batch). Uses parameterized queries for safety.";
   inputSchema = {
     type: "object",
     properties: {

@@ -40,8 +40,12 @@ import { ExplainQueryTool } from "./tools/ExplainQueryTool.js";
 import { ListDatabasesTool } from "./tools/ListDatabasesTool.js";
 import { ListEnvironmentsTool } from "./tools/ListEnvironmentsTool.js";
 import { ValidateEnvironmentConfigTool } from "./tools/ValidateEnvironmentConfigTool.js";
+import { ListScriptsTool } from "./tools/ListScriptsTool.js";
+import { RunScriptTool } from "./tools/RunScriptTool.js";
+import { InspectDependenciesTool } from "./tools/InspectDependenciesTool.js";
 import { auditLogger } from "./audit/AuditLogger.js";
 import { getEnvironmentManager } from "./config/EnvironmentManager.js";
+import { initScriptManager } from "./config/ScriptManager.js";
 import * as crypto from "crypto";
 
 // Generate a unique session ID for this server instance
@@ -417,6 +421,9 @@ const listTableTool = new ListTableTool();
 const listDatabasesTool = new ListDatabasesTool();
 const listEnvironmentsTool = new ListEnvironmentsTool();
 const validateEnvironmentConfigTool = new ValidateEnvironmentConfigTool();
+const listScriptsTool = new ListScriptsTool();
+const runScriptTool = new RunScriptTool();
+const inspectDependenciesTool = new InspectDependenciesTool();
 const dropTableTool = new DropTableTool();
 const describeTableTool = new DescribeTableTool();
 const searchSchemaTool = new SearchSchemaTool();
@@ -564,6 +571,29 @@ const toolRegistry: ToolRoutingConfig[] = [
     keywords: ["validate", "check", "config", "configuration", "health"],
     baseScore: 1.5,
   },
+  {
+    tool: listScriptsTool,
+    name: listScriptsTool.name,
+    intents: ["metadata"],
+    keywords: ["scripts", "list scripts", "templates", "named scripts"],
+    baseScore: 1.5,
+  },
+  {
+    tool: runScriptTool,
+    name: runScriptTool.name,
+    intents: ["data_read", "data_write"],
+    keywords: ["run script", "execute script", "template"],
+    requiredArgs: ["scriptName"],
+    baseScore: 1.5,
+  },
+  {
+    tool: inspectDependenciesTool,
+    name: inspectDependenciesTool.name,
+    intents: ["schema_discovery", "metadata"],
+    keywords: ["dependencies", "depends", "references", "impact", "what uses"],
+    requiredArgs: ["objectName"],
+    baseScore: 1.5,
+  },
 ];
 
 const server = new Server(
@@ -592,11 +622,13 @@ const readOnlyToolList = [
   listTableTool,
   listEnvironmentsTool,
   validateEnvironmentConfigTool,
+  listScriptsTool,
   readDataTool,
   describeTableTool,
   searchSchemaTool,
   profileTableTool,
   relationshipInspectorTool,
+  inspectDependenciesTool,
   testConnectionTool,
   explainQueryTool,
 ];
@@ -614,9 +646,12 @@ const fullToolList = [
   listDatabasesTool,
   listEnvironmentsTool,
   validateEnvironmentConfigTool,
+  listScriptsTool,
+  runScriptTool,
   searchSchemaTool,
   profileTableTool,
   relationshipInspectorTool,
+  inspectDependenciesTool,
   testConnectionTool,
   explainQueryTool,
 ];
@@ -663,6 +698,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case validateEnvironmentConfigTool.name:
         result = await validateEnvironmentConfigTool.run(args as any);
+        break;
+      case listScriptsTool.name:
+        result = await listScriptsTool.run(args as any);
+        break;
+      case runScriptTool.name:
+        result = await runScriptTool.run(args as any);
+        break;
+      case inspectDependenciesTool.name:
+        result = await inspectDependenciesTool.run(args as any);
         break;
       case dropTableTool.name:
         result = await dropTableTool.run(args);
@@ -742,10 +786,12 @@ const APPROVAL_EXEMPT_TOOLS = new Set([
   "list_databases",
   "list_environments",
   "validate_environment_config",
+  "list_scripts",
   "describe_table",
   "test_connection",
   "search_schema",
   "inspect_relationships",
+  "inspect_dependencies",
 ]);
 
 // Patch all tool handlers to ensure SQL connection, policy enforcement, and audit logging
@@ -864,4 +910,4 @@ function wrapToolRun(tool: { name: string; run: (...args: any[]) => Promise<any>
   };
 }
 
-[insertDataTool, deleteDataTool, readDataTool, updateDataTool, createTableTool, createIndexTool, dropTableTool, listTableTool, listDatabasesTool, listEnvironmentsTool, validateEnvironmentConfigTool, describeTableTool, searchSchemaTool, profileTableTool, relationshipInspectorTool, testConnectionTool, explainQueryTool].forEach(wrapToolRun);
+[insertDataTool, deleteDataTool, readDataTool, updateDataTool, createTableTool, createIndexTool, dropTableTool, listTableTool, listDatabasesTool, listEnvironmentsTool, validateEnvironmentConfigTool, listScriptsTool, runScriptTool, inspectDependenciesTool, describeTableTool, searchSchemaTool, profileTableTool, relationshipInspectorTool, testConnectionTool, explainQueryTool].forEach(wrapToolRun);

@@ -359,6 +359,13 @@ Best for: Regulated industries requiring code signing
 | **Tools** | `list_environments` | ✅ |
 | **Tools** | `validate_environment_config` | ✅ |
 | **Tools** | `database` param on read tools | ✅ |
+| **Tools** | `list_scripts` | ✅ |
+| **Tools** | `run_script` | ✅ |
+| **Tools** | `inspect_dependencies` | ✅ |
+| **Scripts** | ScriptManager config system | ✅ |
+| **Scripts** | Per-script tier/env restrictions | ✅ |
+| **Scripts** | Preview mode | ✅ |
+| **Scripts** | Parameterized execution | ✅ |
 | **Audit** | JSON Lines logging | ✅ |
 | **Audit** | Sensitive data redaction | ✅ |
 | **Audit** | Environment in logs | ✅ |

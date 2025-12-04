@@ -5,10 +5,7 @@ import { getEnvironmentManager } from "../config/EnvironmentManager.js";
 export class ListDatabasesTool implements Tool {
   [key: string]: any;
   name = "list_databases";
-  description =
-    "Lists all databases on the SQL Server instance. Requires server-level access. " +
-    "Returns database name, state, size, and other metadata. Results are filtered by " +
-    "the environment's allowedDatabases/deniedDatabases policies.";
+  description = "Lists databases on the SQL Server instance. Requires server-level access. Filtered by environment policies.";
   inputSchema = {
     type: "object",
     properties: {

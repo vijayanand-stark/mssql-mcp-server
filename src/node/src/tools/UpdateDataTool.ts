@@ -4,7 +4,7 @@ import { Tool } from "@modelcontextprotocol/sdk/types.js";
 export class UpdateDataTool implements Tool {
   [key: string]: any;
   name = "update_data";
-  description = "Updates data in an MSSQL Database table with preview and confirmation. Shows affected rows before committing changes. The WHERE clause must be provided for security.";
+  description = "Updates rows in an MSSQL table with preview and confirmation. Requires WHERE clause for safety.";
   inputSchema = {
     type: "object",
     properties: {

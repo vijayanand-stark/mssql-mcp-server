@@ -1,6 +1,15 @@
 # @connorbritain/mssql-mcp-server
 
-Model Context Protocol server for SQL Server. This is the Node.js implementation.
+Model Context Protocol server for SQL Server. Enterprise-ready schema discovery, profiling, and safe data operations.
+
+## Features
+
+- **Multi-environment support** - Define named database environments (prod, staging, dev) with per-environment policies
+- **Governance controls** - `allowedTools`, `deniedTools`, `allowedSchemas`, `deniedSchemas`, `requireApproval`
+- **Server-level access** - Query across multiple databases on a single SQL Server instance
+- **Audit logging** - JSON Lines logs with session IDs, auto-redaction of sensitive data
+- **Secret management** - `${secret:NAME}` placeholders resolve from environment variables
+- **Safe by default** - `READONLY` mode, preview/confirm for mutations, automatic row limits
 
 ## Install
 
@@ -10,13 +19,7 @@ npm install -g @connorbritain/mssql-mcp-server@latest
 npx @connorbritain/mssql-mcp-server@latest
 ```
 
-## CLI
-
-```
-mssql-mcp-server
-```
-
-The entrypoint expects env vars:
+## Quick Start
 
 | Variable | Required | Notes |
 | --- | --- | --- |
@@ -24,14 +27,8 @@ The entrypoint expects env vars:
 | `DATABASE_NAME` | ✅ | Database to target |
 | `SQL_AUTH_MODE` |  | `sql`, `windows`, or `aad` (default `aad`) |
 | `SQL_USERNAME`/`SQL_PASSWORD` |  | Required for `sql`/`windows` modes |
-| `SQL_DOMAIN` |  | Optional for NTLM |
-| `SQL_PORT` |  | Defaults to `1433` |
-| `TRUST_SERVER_CERTIFICATE` |  | Set `true` for dev/self-signed |
-| `CONNECTION_TIMEOUT` |  | Seconds, default `30` |
 | `READONLY` |  | `true` disables write tools |
-| `PROFILE_SAMPLE_SIZE_DEFAULT` |  | Default profiling sample size (default `50`) |
-| `PROFILE_SAMPLE_RETURN_LIMIT` |  | Max sample rows returned (default `10`) |
-| `SEARCH_SCHEMA_DEFAULT_LIMIT` |  | Default pagination size for `search_schema` (default `50`) |
+| `ENVIRONMENTS_CONFIG_PATH` |  | Path to multi-environment JSON config |
 
 ## Example MCP config
 

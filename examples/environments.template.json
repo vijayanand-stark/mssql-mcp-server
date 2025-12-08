@@ -1,0 +1,47 @@
+{
+  "defaultEnvironment": "local-dev",
+  "environments": [
+    {
+      "name": "local-dev",
+      "server": "127.0.0.1",
+      "port": 1433,
+      "database": "SampleLocalDb",
+      "authMode": "sql",
+      "username": "sa",
+      "password": "${SQL_LOCAL_PASSWORD}",
+      "trustServerCertificate": true,
+      "description": "Local SQL Server Express or Docker instance"
+    },
+    {
+      "name": "qa-shared",
+      "server": "qa-sql.example.corp",
+      "database": "SampleQaDb",
+      "authMode": "sql",
+      "username": "qa_mcp_user",
+      "password": "${SQL_QA_PASSWORD}",
+      "readonly": true,
+      "trustServerCertificate": true,
+      "description": "Shared QA instance"
+    },
+    {
+      "name": "prod-readonly",
+      "server": "prod-sql.example.corp",
+      "database": "SampleProdDb",
+      "authMode": "windows",
+      "username": "EXAMPLE\\svc_mcp",
+      "password": "${SQL_PROD_PASSWORD}",
+      "readonly": true,
+      "allowedTools": [
+        "read_data",
+        "describe_table",
+        "search_schema",
+        "profile_table",
+        "inspect_relationships",
+        "explain_query"
+      ],
+      "maxRowsReturned": 500,
+      "auditLevel": "verbose",
+      "description": "Production environment – read-only policy"
+    }
+  ]
+}

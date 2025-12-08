@@ -73,6 +73,7 @@ This server is built around those realities. It's stable, secure by default, and
 **Named Scripts:**
 - `list_scripts` – Show available pre-approved SQL scripts.
 - `run_script` – Execute named scripts with parameters and governance controls.
+- **Scripts directory** – Point the server at a folder containing `scripts.json` + `.sql` files by setting `SCRIPTS_PATH` (env var) or `"scriptsPath"` inside your environment entry. `list_scripts`/`run_script` remain disabled until this location is configured.
 
 **Operations:**
 - `test_connection` – Verify connectivity and latency.
